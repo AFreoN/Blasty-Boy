@@ -10,6 +10,9 @@ public class ProtoFX : MonoBehaviour
 
     [SerializeField] Material alphaMaterial = null;
     [SerializeField] Material additiveMaterial = null;
+    [Tooltip("Optional richer explosion (e.g. from the local VFX pack); layered over the generated one")]
+    [SerializeField] GameObject explosionPrefab = null;
+    [SerializeField] float explosionPrefabScale = 0.35f;
 
     readonly Dictionary<string, Material> materials = new Dictionary<string, Material>();
     Transform templates;
@@ -57,6 +60,23 @@ public class ProtoFX : MonoBehaviour
         instance.Emit(instance.sparks, position, 1.1f * r);
         instance.Emit(instance.ring, position, 2.2f * r, new Color(1f, 0.7f, 0.3f));
         instance.Emit(instance.dust, position.ReplaceY(0.05f), 2f * r, null, Quaternion.Euler(90f, 0f, 0f));
+        if (instance.explosionPrefab != null)
+        {
+            GameObject boom = Instantiate(instance.explosionPrefab, position, Quaternion.identity);
+            boom.transform.localScale *= instance.explosionPrefabScale * r;
+            foreach (ParticleSystem ps in boom.GetComponentsInChildren<ParticleSystem>())
+            {
+                var main = ps.main;
+                main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            }
+            // Transform scale doesn't shrink lights, which would otherwise tint the whole rooftop.
+            foreach (Light l in boom.GetComponentsInChildren<Light>())
+            {
+                l.range *= instance.explosionPrefabScale * r;
+                l.intensity *= 0.6f;
+            }
+            Destroy(boom, 4f);
+        }
     }
 
     public static void Dust(Vector3 position, float scale = 1f)

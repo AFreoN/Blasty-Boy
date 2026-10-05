@@ -35,11 +35,19 @@ public class ProtoAutoPilot : MonoBehaviour
         if (game.state == ProtoState.Menu)
             game.StartRun();
 
-        int lastWave = -1, throwInWave = 0, throws = 0, chasesCaptured = 0;
+        int lastWave = -1, throwInWave = 0, throws = 0, chasesCaptured = 0, clearsCaptured = 0;
         Capture("intro");
 
         while (game.state != ProtoState.Won && game.state != ProtoState.Lost)
         {
+            if (game.state == ProtoState.WaveClear && clearsCaptured <= game.WaveIndex && capturesPerWave > 0)
+            {
+                clearsCaptured = game.WaveIndex + 1;
+                yield return new WaitForSecondsRealtime(1.5f);
+                Capture("clear" + (game.WaveIndex + 1));
+                continue;
+            }
+
             if (game.state == ProtoState.Chase && chasesCaptured <= game.WaveIndex && capturesPerWave > 0)
             {
                 chasesCaptured = game.WaveIndex + 1;

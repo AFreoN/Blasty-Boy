@@ -173,6 +173,7 @@ public class ProtoThrower : MonoBehaviour
         aimLine.enabled = true;
         ProtoTime.instance.SetAimScale(aimingInFever ? feverTimeScale : flickAimTimeScale);
         ProtoCamera.instance.SetAimZoom(!aimingInFever);
+        ProtoMusic.SetFocus(!aimingInFever);
 
         if (!aimingInFever)
         {
@@ -207,6 +208,7 @@ public class ProtoThrower : MonoBehaviour
         aimLine.enabled = false;
         ProtoTime.instance.SetAimScale(1f, true);
         ProtoCamera.instance.SetAimZoom(false);
+        ProtoMusic.SetFocus(false);
         ClearPrediction();
         if (animResetTimer <= 0f)
         {

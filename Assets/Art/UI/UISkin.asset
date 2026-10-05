@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e80c98683f494da4f94179e9abf64071, type: 3}
+  m_Name: UISkin
+  m_EditorClassIdentifier: Assembly-CSharp::ProtoUISkin
+  font: {fileID: 11400000, guid: 7659f6d6ec9b642db8be29bc45fe97cc, type: 2}
+  fontOutlineMaterial: {fileID: 8690591861142563998, guid: 7659f6d6ec9b642db8be29bc45fe97cc,
+    type: 2}
+  buttonGreen: {fileID: 21300000, guid: cb37917483ee24fea8fab306393441e5, type: 3}
+  buttonYellow: {fileID: 21300000, guid: 804461bef59b141dba258fc997c8ca15, type: 3}
+  buttonBlue: {fileID: 21300000, guid: 6bbcba4e267be464998897741b81d508, type: 3}
+  buttonRed: {fileID: 21300000, guid: 681db73f19fb24efe843aad713eccb43, type: 3}
+  buttonPause: {fileID: 21300000, guid: 1f6359cc39532464595f4eeeedb325e0, type: 3}
+  panel: {fileID: 21300000, guid: e10e2e63255044d738e79d5744af16aa, type: 3}
+  pill: {fileID: 21300000, guid: 3a057b166165546afb4bab7fbec93a29, type: 3}
+  toast: {fileID: 21300000, guid: 3a057b166165546afb4bab7fbec93a29, type: 3}
+  dim: {fileID: 21300000, guid: 1672025ec5ecf4aeebe093f9588af382, type: 3}
+  glow: {fileID: 21300000, guid: 30af861f4c8c141159c3c1ff5b424c3c, type: 3}
+  ribbonOrange: {fileID: 21300000, guid: 2323358c16953446e9b2cb27fde07104, type: 3}
+  ribbonGreen: {fileID: 21300000, guid: 4f004328d7c9547edae34787869f3e8a, type: 3}
+  ribbonYellow: {fileID: 21300000, guid: 03a52e934f88f4a699b498a51573c186, type: 3}
+  starLarge: {fileID: 21300000, guid: 82857232218d743c0bdd3f145cd1120f, type: 3}
+  starSmall: {fileID: 21300000, guid: def9d44e77c3046528bd1809282fe1cb, type: 3}
+  tile: {fileID: 21300000, guid: a4771f2cf68494470ab5d3d0bb83abad, type: 3}
+  textDecoLeft: {fileID: 21300000, guid: af96c8555362c4b7fba005304d49b573, type: 3}
+  textDecoRight: {fileID: 21300000, guid: 51bc7f9398cc24aff81f13855411d2d4, type: 3}
+  killDouble: {fileID: 21300000, guid: 997ac216ed59c4b10a97280c63cf5f9c, type: 3}
+  killTriple: {fileID: 21300000, guid: 9107d96184f17498b9e0058c1b9fc98a, type: 3}
+  killQuadra: {fileID: 21300000, guid: 59c5f6931e58c40b08a835658550c242, type: 3}
+  killPenta: {fileID: 21300000, guid: ceb893d4756474cbcbe1e61ace91823b, type: 3}
+  bossBarBack: {fileID: 21300000, guid: 3a057b166165546afb4bab7fbec93a29, type: 3}
+  bossBarFill: {fileID: 21300000, guid: 9d8678ca05b1a4c318a8be7f99604567, type: 3}
+  bossNameTag: {fileID: 21300000, guid: 16a49e75d2f974729b2f2a0716035397, type: 3}
+  barFrame: {fileID: 0}
+  stageNode: {fileID: 0}
+  stageNodeActive: {fileID: 0}
+  stagePath: {fileID: 0}
+  iconHeart: {fileID: 21300000, guid: b73c68789259244c79e641e341229e56, type: 3}
+  iconTrophy: {fileID: 21300000, guid: a68deb420067d451cac7459b042af11f, type: 3}
+  iconCrown: {fileID: 21300000, guid: 6d2e03362a76e432284bc547c1bf0408, type: 3}
+  iconSword: {fileID: 21300000, guid: 2514ee746d3304d51b8ac40110537044, type: 3}
+  iconTarget: {fileID: 21300000, guid: 0d985ffdccc2e4a5c971f7007d7c47af, type: 3}
+  iconBolt: {fileID: 21300000, guid: d58b74e4ce6474cdaae739892de6da73, type: 3}
+  iconBomb: {fileID: 21300000, guid: 0fd49f5f74c7443f697469bd183d7de0, type: 3}
+  iconBoss: {fileID: 21300000, guid: 978f5921e87d04a7f88a2dc6c330fab2, type: 3}
+  skillFrame: {fileID: 21300000, guid: f4268d9db1c2b4662a75c5ec35f9b852, type: 3}
+  skillCooldown: {fileID: 21300000, guid: 10150e67019cc4d999154996320df565, type: 3}
+  targetReticle: {fileID: 0}
+  tutorialHand: {fileID: 21300000, guid: a905fc3a2c65047d281dff2023bd44c2, type: 3}
+  speechBubble: {fileID: 21300000, guid: 74e324dd9cbd34aa2811e539973caac7, type: 3}
+  speechArrow: {fileID: 21300000, guid: acf39a1bf59f24216801474be1fc7cb8, type: 3}

@@ -83,7 +83,7 @@ public class ProtoBoss : MonoBehaviour
     public void Taunt()
     {
         anim.CrossFadeInFixedTime("Taunt", 0.15f);
-        ProtoHUD.instance.Popup(transform.position + Vector3.up * 3.4f, taunts[Random.Range(0, taunts.Length)], new Color(1f, 0.85f, 0.4f), 0.9f);
+        ProtoHUD.instance.Taunt(taunts[Random.Range(0, taunts.Length)]);
     }
 
     // Called when a blade completes its curve. More goons cut on the way = more damage.
@@ -107,7 +107,7 @@ public class ProtoBoss : MonoBehaviour
             if (damage == 0)
             {
                 punch = 0.6f;
-                ProtoHUD.instance.Popup(transform.position + Vector3.up * 3.4f, "GRR! NOT YET!", new Color(1f, 0.85f, 0.4f), 1f);
+                ProtoHUD.instance.Taunt("GRR! NOT YET!");
                 ProtoAudio.Play(Sfx.Thunk, 0.6f, 0.7f);
                 return;
             }
@@ -132,7 +132,7 @@ public class ProtoBoss : MonoBehaviour
         IsBusy = true;
         transform.rotation = Quaternion.LookRotation(Vector3.forward);
         anim.CrossFadeInFixedTime("Run", 0.1f);
-        ProtoHUD.instance.Popup(transform.position + Vector3.up * 3.4f, "CATCH ME IF YOU CAN!", new Color(1f, 0.85f, 0.4f), 1f);
+        ProtoHUD.instance.Taunt("CATCH ME IF YOU CAN!");
 
         Vector3 edge = new Vector3(transform.position.x, transform.position.y, Mathf.Max(edgeZ, transform.position.z));
         while ((edge - transform.position).ReplaceY(0f).sqrMagnitude > 0.04f)

@@ -1,3 +1,5 @@
+using System.Linq;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -14,6 +16,10 @@ public static class PrototypeSceneBuilder
     const string materialDir = "Assets/Materials/Prototype";
     const string castDir = "Assets/Art/Characters/Prefabs";
     const string cityDir = "Assets/ThirdParty/Quaternius/DowntownCity";
+    const string propDir = "Assets/Art/Props";
+    // Asset Store content installed locally (gitignored). Everything that uses it is optional.
+    const string storeDir = "Assets/_Store";
+    const string skinPath = "Assets/Art/UI/UISkin.asset";
     const int rooftopCount = 5;
     const float zoneSpacing = 34f;
 
@@ -93,15 +99,24 @@ public static class PrototypeSceneBuilder
         p.hostage = MakePrefab(castDir + "/Hostage.prefab", "Proto_Hostage", root => root.AddComponent<ProtoHostage>());
         p.boss = MakePrefab(castDir + "/Boss.prefab", "Proto_Boss", root => root.AddComponent<ProtoBoss>());
 
-        p.barrel = MakePrefab("Assets/Prefabs/Barrell_Explosive.prefab", "Proto_Barrel", root =>
+        p.barrel = MakePrefab(propDir + "/Prop_ExplosiveDrum.fbx", "Proto_Barrel", root =>
         {
-            Object.DestroyImmediate(root.GetComponent<InteractibleObject>());
+            var col = root.AddComponent<CapsuleCollider>();
+            col.center = new Vector3(0f, 0.62f, 0f);
+            col.height = 1.24f;
+            col.radius = 0.44f;
             root.AddComponent<ProtoBarrel>();
         });
 
-        p.crate = MakePrefab("Assets/Prefabs/Box.prefab", "Proto_Crate", root =>
+        p.crate = MakePrefab(propDir + "/Prop_HVAC.fbx", "Proto_Crate", root =>
         {
-            Object.DestroyImmediate(root.GetComponent<InteractibleObject>());
+            Bounds b = WorldBounds(root);
+            var col = root.AddComponent<BoxCollider>();
+            col.center = root.transform.InverseTransformPoint(b.center);
+            col.size = b.size;
+            var rb = root.AddComponent<Rigidbody>();
+            rb.mass = 60f;
+            rb.isKinematic = true;
             root.AddComponent<ProtoCrate>();
         });
 
@@ -201,6 +216,22 @@ public static class PrototypeSceneBuilder
 
     static GameObject MakePrefab(string sourcePath, string name, System.Action<GameObject> edit)
     {
+        // Model files can't be opened as prefab contents; build from an instance instead.
+        if (sourcePath.EndsWith(".fbx", System.StringComparison.OrdinalIgnoreCase))
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(sourcePath));
+            try
+            {
+                edit(instance);
+                instance.name = name;
+                return PrefabUtility.SaveAsPrefabAsset(instance, prefabDir + "/" + name + ".prefab");
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+        }
+
         GameObject root = PrefabUtility.LoadPrefabContents(sourcePath);
         try
         {
@@ -304,10 +335,15 @@ public static class PrototypeSceneBuilder
         SceneManager.MoveGameObjectToScene(systems, scene);
         systems.AddComponent<ProtoTime>();
         systems.AddComponent<ProtoAudio>();
+        var music = systems.AddComponent<ProtoMusic>();
+        AssignMusic(music);
         var fx = systems.AddComponent<ProtoFX>();
         SetField(fx, "alphaMaterial", mats.alpha);
         SetField(fx, "additiveMaterial", mats.additive);
-        SetField(systems.AddComponent<ProtoHUD>(), "font", AssetDatabase.LoadAssetAtPath<Font>("Assets/Font/LuckiestGuy-Regular.ttf"));
+        SetField(fx, "explosionPrefab", StoreAsset<GameObject>("ExplosionEffect2", "t:Prefab"));
+        var hud = systems.AddComponent<ProtoHUD>();
+        SetField(hud, "skin", BuildSkin());
+        SetField(hud, "legacyFont", AssetDatabase.LoadAssetAtPath<Font>("Assets/Font/LuckiestGuy-Regular.ttf"));
         var director = systems.AddComponent<ProtoGame>();
         SetField(director, "gruntPrefab", prefabs.goon.GetComponent<ProtoEnemy>());
         SetField(director, "shieldPrefab", prefabs.riot.GetComponent<ProtoEnemy>());
@@ -377,6 +413,134 @@ public static class PrototypeSceneBuilder
             return copy;
         }
         throw new System.Exception("'" + rootName + "' not found in " + from.path);
+    }
+    #endregion
+
+    #region Optional store content (UI kit, music, VFX)
+    // Looks an asset up by exact name under Assets/_Store; null when the store content isn't installed.
+    static T StoreAsset<T>(string name, string filter) where T : Object
+    {
+        if (!AssetDatabase.IsValidFolder(storeDir))
+            return null;
+        foreach (string guid in AssetDatabase.FindAssets(name + " " + filter, new[] { storeDir }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (System.IO.Path.GetFileNameWithoutExtension(path) != name)
+                continue;
+            // Prefer the 256px variant of icons that ship in several sizes.
+            if (path.Contains("/ItemIcons/") || path.Contains("/Pictoicons/"))
+            {
+                if (!path.Contains("/256/"))
+                    continue;
+            }
+            T asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset != null)
+                return asset;
+        }
+        return null;
+    }
+
+    static Sprite KitSprite(string name) => StoreAsset<Sprite>(name, "t:Sprite");
+
+    static ProtoUISkin BuildSkin()
+    {
+        EnsureFolder("Assets/Art", "UI");
+        var skin = AssetDatabase.LoadAssetAtPath<ProtoUISkin>(skinPath);
+        if (skin == null)
+        {
+            skin = ScriptableObject.CreateInstance<ProtoUISkin>();
+            AssetDatabase.CreateAsset(skin, skinPath);
+        }
+
+        skin.font = StoreAsset<TMP_FontAsset>("LilitaOne-Regular Outline 120 SDF", "t:TMP_FontAsset");
+        skin.fontOutlineMaterial = skin.font != null ? skin.font.material : null;
+
+        skin.buttonGreen = KitSprite("button_green");
+        skin.buttonYellow = KitSprite("button_yellow");
+        skin.buttonBlue = KitSprite("button_blue");
+        skin.buttonRed = KitSprite("button_red");
+        skin.buttonPause = KitSprite("play_btn_pause");
+        skin.panel = KitSprite("popup_bg");
+        skin.pill = KitSprite("top_status_bg_white");
+        skin.toast = KitSprite("top_status_bg_white");
+        skin.dim = KitSprite("common_dimed");
+        skin.glow = KitSprite("common_bg_glow_512");
+
+        skin.ribbonOrange = KitSprite("ribbon_bg_orange");
+        skin.ribbonGreen = KitSprite("ribbon_bg_green");
+        skin.ribbonYellow = KitSprite("ribbon_bg_yellow");
+        skin.starLarge = KitSprite("result_star_large");
+        skin.starSmall = KitSprite("result_star_samll");
+        skin.tile = KitSprite("reward_menu_bg");
+        skin.textDecoLeft = KitSprite("text_deco_line_left");
+        skin.textDecoRight = KitSprite("text_deco_line_right");
+
+        skin.killDouble = KitSprite("txt_double_kill");
+        skin.killTriple = KitSprite("txt_triple_kill");
+        skin.killQuadra = KitSprite("txt_quadra_kill");
+        skin.killPenta = KitSprite("txt_penta_kill");
+
+        skin.bossBarBack = KitSprite("top_status_bg_white");
+        skin.bossBarFill = KitSprite("user_enemy_prg_red");
+        skin.bossNameTag = KitSprite("play_stage_name_bg");
+
+        skin.iconHeart = KitSprite("common_icon_heart");
+        skin.iconTrophy = KitSprite("common_icon_trophy");
+        skin.iconCrown = KitSprite("common_icon_crown");
+        skin.iconSword = KitSprite("common_icon_sword");
+        skin.iconTarget = KitSprite("common_icon_target");
+        skin.iconBolt = KitSprite("common_icon_bolt");
+        skin.iconBomb = KitSprite("common_icon_bomb");
+        skin.iconBoss = KitSprite("stage_icon_boss");
+        skin.skillFrame = KitSprite("play_skill_0");
+        skin.skillCooldown = KitSprite("play_skill_cooltime_bg");
+        skin.tutorialHand = KitSprite("btn_icon_tap");
+        skin.speechBubble = KitSprite("tutorial_chat_bg");
+        skin.speechArrow = KitSprite("tutorial_chat_bg_arrow");
+
+        EditorUtility.SetDirty(skin);
+        return skin;
+    }
+
+    static void AssignMusic(ProtoMusic music)
+    {
+        (string field, string clip, bool loop)[] map =
+        {
+            ("menu", "Chase MENU LOOP", true),
+            ("chase", "Chase LOOP", true),
+            ("showdown", "Boss Battle 1 Loop", true),
+            ("getReady", "Chase GET READY 3 COUNT", false),
+            ("rooftopClear", "Chase Win QUICK", false),
+            ("victory", "Triumphant Victory", false),
+            ("defeat", "Dramatic Defeat SHORT", false),
+            ("star1", "Perc 1st Star", false),
+            ("star2", "Perc 2nd Star", false),
+            ("star3", "Perc 3rd Star", false),
+            ("fever", "Level Up BRASS", false),
+        };
+        foreach (var m in map)
+        {
+            AudioClip clip = StoreAsset<AudioClip>(m.clip, "t:AudioClip");
+            if (clip != null)
+                ConfigureMusicImport(AssetDatabase.GetAssetPath(clip), m.loop);
+            SetField(music, m.field, clip);
+        }
+    }
+
+    // Mobile-friendly import: loops stream as Vorbis, stingers stay compressed in memory.
+    static void ConfigureMusicImport(string path, bool loop)
+    {
+        var importer = (AudioImporter)AssetImporter.GetAtPath(path);
+        var settings = importer.defaultSampleSettings;
+        var load = loop ? AudioClipLoadType.Streaming : AudioClipLoadType.CompressedInMemory;
+        if (settings.loadType == load && settings.compressionFormat == AudioCompressionFormat.Vorbis)
+            return;
+        settings.loadType = load;
+        settings.compressionFormat = AudioCompressionFormat.Vorbis;
+        settings.quality = 0.6f;
+        importer.defaultSampleSettings = settings;
+        importer.forceToMono = !loop;
+        importer.SaveAndReimport();
     }
     #endregion
 

@@ -40,7 +40,7 @@ public class ProtoWave
 public class ProtoGame : MonoBehaviour
 {
     public static ProtoGame instance { get; private set; }
-    public static bool IsPlaying => instance != null && instance.state == ProtoState.Playing;
+    public static bool IsPlaying => instance != null && instance.state == ProtoState.Playing && !instance.paused;
 
     [Header("Prefabs")]
     [SerializeField] ProtoEnemy gruntPrefab = null;
@@ -94,6 +94,9 @@ public class ProtoGame : MonoBehaviour
     int score;
     float feverCharge;
     bool feverPending;
+    bool paused;
+    int damageThisRooftop;
+    readonly Dictionary<ProtoBlade, int> bladeTotals = new Dictionary<ProtoBlade, int>();
     float runStart, waveStart;
     readonly List<ProtoEnemy> enemies = new List<ProtoEnemy>();
     readonly List<GameObject> props = new List<GameObject>();
@@ -116,6 +119,7 @@ public class ProtoGame : MonoBehaviour
         boss.Place(ZoneOrigin(0) + bossOffset);
         ProtoCamera.instance.Hold(ZoneOrigin(0));
         ProtoHUD.instance.ShowMenu();
+        ProtoMusic.Play(MusicCue.Menu);
     }
 
     private void Update()
@@ -152,6 +156,8 @@ public class ProtoGame : MonoBehaviour
 
     public void Restart()
     {
+        ProtoTime.instance.Paused = false;
+        AudioListener.pause = false;
         ProtoTime.instance.ResetAll();
         Scene scene = SceneManager.GetActiveScene();
 #if UNITY_EDITOR
@@ -173,6 +179,9 @@ public class ProtoGame : MonoBehaviour
 
         ProtoWave wave = waves[index];
         boss.CanBeKnockedOut = wave.finale;
+        damageThisRooftop = 0;
+        ProtoMusic.Play(MusicCue.GetReady);
+        ProtoMusic.Play(wave.finale ? MusicCue.Showdown : MusicCue.Chase);
         ProtoHUD.instance.SetWave(index + 1, waves.Count);
         ProtoHUD.instance.Banner(wave.finale ? "SHOWDOWN!" : "ROOFTOP " + (index + 1), wave.title, 1.4f);
         if (!string.IsNullOrEmpty(wave.hint))
@@ -219,13 +228,19 @@ public class ProtoGame : MonoBehaviour
         ProtoTelemetry.Log("wave_clear", waveIndex + 1, Time.time - waveStart, hearts);
         Vector3 origin = ZoneOrigin(waveIndex);
         ProtoTime.instance.SlowMo(0.35f, 0.6f);
-        ProtoAudio.Play(Sfx.Fanfare, 0.8f);
+        // Let the last kill callout land before the banner takes the middle of the screen.
+        yield return new WaitForSecondsRealtime(0.6f);
+
+        // Stars for hearts kept on this rooftop.
+        int stars = Mathf.Clamp(3 - damageThisRooftop, 1, 3);
+        int bonus = stars * heartBonus;
+        ProtoMusic.Play(MusicCue.RooftopClear);
         ProtoFX.Confetti(origin + new Vector3(-3f, 0f, 9f));
         ProtoFX.Confetti(origin + new Vector3(3f, 0f, 9f));
-        ProtoHUD.instance.Banner("ROOFTOP CLEAR!", "+" + (hearts * heartBonus) + " HEART BONUS", 1.3f);
-        AddScore(hearts * heartBonus);
+        ProtoHUD.instance.RooftopClear(stars, "+" + bonus + " BONUS", 1.2f);
+        AddScore(bonus);
         ProtoHaptics.Pulse(40);
-        yield return new WaitForSecondsRealtime(1.5f);
+        yield return new WaitForSecondsRealtime(2.2f);
 
         yield return Chase(waveIndex + 1);
     }
@@ -253,8 +268,9 @@ public class ProtoGame : MonoBehaviour
         state = ProtoState.Won;
         ProtoThrower.instance.Celebrate();
         ProtoFX.Confetti(ProtoThrower.instance.transform.position + Vector3.forward);
-        ProtoTelemetry.Log("run_end", waveIndex + 1, "win", Time.time - runStart, Summary());
-        ProtoHUD.instance.ShowEnd(true, Summary());
+        ProtoMusic.Play(MusicCue.Victory);
+        ProtoTelemetry.Log("run_end", waveIndex + 1, "win", Time.time - runStart, SummaryText());
+        ProtoHUD.instance.ShowEnd(Summary(true));
     }
 
     void Lose(Vector3 hitDirection)
@@ -263,17 +279,36 @@ public class ProtoGame : MonoBehaviour
         ProtoTime.instance.SlowMo(0.25f, 1.2f);
         ProtoThrower.instance.Die(hitDirection);
         ProtoAudio.Play(Sfx.Hurt, 1f, 0.7f);
-        ProtoTelemetry.Log("run_end", waveIndex + 1, "lose", Time.time - runStart, Summary());
+        ProtoMusic.Play(MusicCue.Defeat);
+        ProtoTelemetry.Log("run_end", waveIndex + 1, "lose", Time.time - runStart, SummaryText());
         StartCoroutine(ShowEndLater(false, 1.4f));
     }
 
     IEnumerator ShowEndLater(bool won, float delay)
     {
         yield return new WaitForSecondsRealtime(delay);
-        ProtoHUD.instance.ShowEnd(won, Summary());
+        ProtoHUD.instance.ShowEnd(Summary(won));
     }
 
-    string Summary()
+    ProtoRunSummary Summary(bool won)
+    {
+        return new ProtoRunSummary
+        {
+            won = won,
+            score = score,
+            rooftops = won ? waves.Count : waveIndex,
+            totalRooftops = waves.Count,
+            bossDamage = bossDamage,
+            bossMaxHealth = boss.MaxHealth,
+            bestMulti = bestMulti,
+            accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsWithKill / throws) : 0,
+            storms = fevers,
+            seconds = Mathf.RoundToInt(Time.time - runStart),
+            stars = won ? Mathf.Clamp(hearts, 1, 3) : 0,
+        };
+    }
+
+    string SummaryText()
     {
         int accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsWithKill / throws) : 0;
         return "SCORE  " + score
@@ -309,9 +344,9 @@ public class ProtoGame : MonoBehaviour
                     ProtoFX.Dust(pos, 0.8f);
                     break;
                 case ProtoSpawnKind.Crate:
-                    // Crates come as a two-high stack so they cover blade height.
-                    props.Add(Instantiate(cratePrefab, pos + Vector3.up * 0.5f, Quaternion.identity).gameObject);
-                    props.Add(Instantiate(cratePrefab, pos + Vector3.up * 1.5f, Quaternion.identity).gameObject);
+                    // Rooftop HVAC unit: tall enough to cover blade height on its own.
+                    props.Add(Instantiate(cratePrefab, pos, Quaternion.Euler(0f, Random.Range(-8f, 8f), 0f)).gameObject);
+                    ProtoFX.Dust(pos, 1.2f);
                     break;
             }
         }
@@ -379,12 +414,21 @@ public class ProtoGame : MonoBehaviour
             points += flankBonus;
         AddScore(points);
 
+        // One running score tag per blade instead of a popup per kill.
+        int bladeTotal = points;
+        if (blade != null)
+        {
+            bladeTotals.TryGetValue(blade, out int sofar);
+            bladeTotal = sofar + points;
+            bladeTotals[blade] = bladeTotal;
+        }
+        ProtoHUD.instance.BladeScore(blade, point + Vector3.up * 0.6f, bladeTotal, n);
+
         if (fever)
         {
             ProtoCamera.instance.Shake(0.12f);
             ProtoFX.KillBurst(point, dir, color, 1);
             ProtoAudio.Play(Sfx.Hit, 0.6f, ProtoAudio.Semitones(Random.Range(0, 5) * 2));
-            ProtoHUD.instance.Popup(point + Vector3.up * 0.6f, "+" + points, new Color(0.85f, 0.6f, 1f), 0.9f);
             return;
         }
 
@@ -397,9 +441,8 @@ public class ProtoGame : MonoBehaviour
         ProtoAudio.Play(Sfx.Pop, 0.5f, ProtoAudio.Semitones((n - 1) * 2));
         ProtoHaptics.Pulse(15 + 8 * Mathf.Min(n, 6));
 
-        ProtoHUD.instance.Popup(point + Vector3.up * 0.6f, "+" + points, n >= 3 ? new Color(1f, 0.6f, 0.15f) : Color.white, 1f + 0.12f * n);
         if (flank)
-            ProtoHUD.instance.Popup(point + Vector3.up * 1.4f, "FLANKED!", new Color(0.4f, 1f, 1f), 1.2f);
+            ProtoHUD.instance.Popup(point + Vector3.up * 1.4f, "FLANKED!", new Color(0.4f, 1f, 1f));
 
         if (n >= 2)
         {
@@ -445,7 +488,8 @@ public class ProtoGame : MonoBehaviour
         ProtoCamera.instance.FovPunch(8f);
         ProtoAudio.Play(Sfx.Fanfare, 1f, 1.25f);
         ProtoHUD.instance.Flash(new Color(0.7f, 0.3f, 1f, 0.55f));
-        ProtoHUD.instance.Banner("SHADOW STORM!", "HOLD TO UNLEASH", 1.1f);
+        ProtoHUD.instance.Callout("SHADOW STORM!", new Color(0.8f, 0.5f, 1f), CalloutPriority.Top, 1f);
+        ProtoMusic.Play(MusicCue.Fever);
         ProtoHaptics.Pulse(60);
         ProtoTelemetry.Log("fever", waveIndex + 1);
     }
@@ -464,7 +508,7 @@ public class ProtoGame : MonoBehaviour
         ProtoFX.KillBurst(point, Vector3.forward, new Color(1f, 0.85f, 0.4f), Mathf.Clamp(damage / 2, 1, 6));
         ProtoAudio.Play(Sfx.Thunk, 0.9f, big ? 0.75f : 1f);
         ProtoAudio.Play(Sfx.Hit, big ? 1f : 0.5f, 0.7f);
-        ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "-" + damage, big ? new Color(1f, 0.3f, 0.2f) : new Color(1f, 0.85f, 0.4f), big ? 1.6f : 1f);
+        ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "-" + damage, big ? new Color(1f, 0.3f, 0.2f) : new Color(1f, 0.85f, 0.4f), big ? 1.25f : 1f);
         ProtoHUD.instance.BossHit(big);
         ProtoTelemetry.Log("boss_hit", waveIndex + 1, damage, hitBoss.Health);
     }
@@ -489,7 +533,7 @@ public class ProtoGame : MonoBehaviour
         foreach (ProtoEnemy e in enemies)
             if (e != null)
                 e.Scatter();
-        ProtoHUD.instance.Banner("K.O.!", "BIG BEAR IS DOWN!", 2f);
+        ProtoHUD.instance.Banner("K.O.!", "BIG BEAR IS DOWN!", 2f, true);
         ProtoTelemetry.Log("boss_ko", waveIndex + 1, Time.time - runStart);
         yield return new WaitForSecondsRealtime(2.4f);
         Win();
@@ -501,7 +545,7 @@ public class ProtoGame : MonoBehaviour
         ProtoCamera.instance.Shake(0.3f);
         ProtoFX.Clang(point);
         ProtoAudio.Play(Sfx.Clang, 0.9f, Random.Range(0.95f, 1.05f));
-        ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "CLANG!", new Color(0.75f, 0.85f, 1f), 1.2f);
+        ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "CLANG!", new Color(0.75f, 0.85f, 1f));
         ProtoHaptics.Pulse(30);
     }
 
@@ -510,7 +554,7 @@ public class ProtoGame : MonoBehaviour
         ProtoCamera.instance.Shake(0.12f);
         ProtoFX.WoodHit(point);
         ProtoAudio.Play(Sfx.Wood, 0.9f, Random.Range(0.9f, 1.1f));
-        ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "THUNK", new Color(0.95f, 0.8f, 0.55f), 0.9f);
+        ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "CLUNK!", new Color(0.85f, 0.9f, 1f), 0.9f);
     }
 
     public void OnExplosion(Vector3 center, float radius)
@@ -522,7 +566,7 @@ public class ProtoGame : MonoBehaviour
         ProtoFX.Explosion(center, radius);
         ProtoAudio.Play(Sfx.Boom, 1f, Random.Range(0.9f, 1.05f));
         ProtoHUD.instance.Flash(new Color(1f, 0.85f, 0.5f, 0.6f));
-        ProtoHUD.instance.Popup(center + Vector3.up * 1.5f, "KABOOM!", new Color(1f, 0.55f, 0.1f), 1.8f);
+        ProtoHUD.instance.Callout("KABOOM!", new Color(1f, 0.55f, 0.1f), CalloutPriority.High, 0.7f);
         ProtoHaptics.Pulse(80);
     }
 
@@ -534,13 +578,13 @@ public class ProtoGame : MonoBehaviour
 
     public void OnHostageHit(ProtoHostage hostage, Vector3 point)
     {
-        ProtoHUD.instance.Popup(point + Vector3.up, "OOPS!", new Color(1f, 0.3f, 0.3f), 1.6f);
+        ProtoHUD.instance.Popup(point + Vector3.up, "OOPS!", new Color(1f, 0.3f, 0.3f), 1.2f);
         Damage(Vector3.back, null);
     }
 
     public void OnHostageLost(ProtoHostage hostage)
     {
-        ProtoHUD.instance.Popup(hostage.transform.position + Vector3.up * 2f, "TOO SLOW!", new Color(1f, 0.3f, 0.3f), 1.5f);
+        ProtoHUD.instance.Popup(hostage.transform.position + Vector3.up * 2f, "TOO SLOW!", new Color(1f, 0.3f, 0.3f), 1.2f);
         Damage(Vector3.back, null);
     }
 
@@ -551,7 +595,8 @@ public class ProtoGame : MonoBehaviour
         ProtoFX.Sparkle(hostage.transform.position + Vector3.up, 1.5f);
         ProtoFX.Confetti(hostage.transform.position);
         ProtoAudio.Play(Sfx.Rescue, 1f);
-        ProtoHUD.instance.Popup(hostage.transform.position + Vector3.up * 2.2f, "RESCUED! +" + rescueBonus, new Color(0.45f, 1f, 0.45f), 1.6f);
+        ProtoHUD.instance.Callout("RESCUED!", new Color(0.45f, 1f, 0.45f), CalloutPriority.High, 0.8f);
+        ProtoHUD.instance.Popup(hostage.transform.position + Vector3.up * 2.2f, "+" + rescueBonus, new Color(0.45f, 1f, 0.45f));
         ProtoTelemetry.Log("rescue", waveIndex + 1);
     }
 
@@ -562,6 +607,7 @@ public class ProtoGame : MonoBehaviour
 
         hearts--;
         damageTaken++;
+        damageThisRooftop++;
         ProtoTelemetry.Log("damage", waveIndex + 1, hearts);
         ProtoTime.instance.HitStop(0.1f);
         ProtoCamera.instance.Shake(0.7f);
@@ -571,12 +617,22 @@ public class ProtoGame : MonoBehaviour
         ProtoHUD.instance.DamageFlash();
         ProtoHaptics.Pulse(120);
         if (text != null)
-            ProtoHUD.instance.Popup(ProtoThrower.instance.transform.position + Vector3.up * 2.4f, text, new Color(1f, 0.3f, 0.3f), 1.5f);
+            ProtoHUD.instance.Popup(ProtoThrower.instance.transform.position + Vector3.up * 2.4f, text, new Color(1f, 0.3f, 0.3f), 1.2f);
 
         if (hearts <= 0)
             Lose(direction);
         else
             ProtoThrower.instance.Flinch();
+    }
+
+    public void TogglePause()
+    {
+        if (state == ProtoState.Menu || state == ProtoState.Won || state == ProtoState.Lost)
+            return;
+        paused = !paused;
+        ProtoTime.instance.Paused = paused;
+        AudioListener.pause = paused;
+        ProtoHUD.instance.SetPaused(paused);
     }
 
     void AddScore(int amount)

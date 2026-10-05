@@ -16,6 +16,8 @@ public class ProtoTime : MonoBehaviour
     float slowMoUntil = 0f;
     float slowMoScale = 1f;
 
+    public bool Paused { get; set; }
+
     private void Awake()
     {
         instance = this;
@@ -64,6 +66,11 @@ public class ProtoTime : MonoBehaviour
         if (Time.unscaledTime < hitStopUntil)
             scale = hitStopScale;
 
+        if (Paused)
+        {
+            Time.timeScale = 0f;   // fixedDeltaTime must stay positive, so it keeps its last value
+            return;
+        }
         Apply(scale);
     }
 

@@ -73,3 +73,7 @@ crashlytics-build.properties
 
 # Downloaded third-party packs (staging, not imported)
 /_AssetStaging/
+
+# Unity Asset Store content: licensed for use in builds, not for redistribution in this public repo
+/Assets/_Store/
+/Assets/_Store.meta

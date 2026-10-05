@@ -1,10 +1,11 @@
 using UnityEngine;
 
-// Physics crate used as cover: a blade that touches it sticks in and stops, and knocks the crate around.
-// This is what makes straight throws fail and the bend matter.
+// Rooftop cover (an HVAC unit): a blade that touches it sticks in and stops. This is what makes straight throws fail
+// and the bend matter. Heavy cover only wobbles when hit; an explosion still sends it flying.
 public class ProtoCrate : ProtoTarget
 {
     [SerializeField] float bladeImpulse = 4f;
+    [SerializeField] bool heavy = true;
 
     Collider box;
     Rigidbody body;
@@ -18,6 +19,20 @@ public class ProtoCrate : ProtoTarget
     {
         box = GetComponent<Collider>();
         body = GetComponent<Rigidbody>();
+        body.isKinematic = heavy;
+        baseScale = transform.localScale;
+    }
+
+    Vector3 baseScale;
+    float wobble;
+
+    private void Update()
+    {
+        if (wobble <= 0f)
+            return;
+        wobble = Mathf.Max(0f, wobble - Time.deltaTime * 3f);
+        float w = Mathf.Sin(wobble * 40f) * wobble * 0.06f;
+        transform.localScale = new Vector3(baseScale.x * (1f + w), baseScale.y * (1f - w), baseScale.z * (1f + w));
     }
 
     public override bool Intersects(Vector3 a, Vector3 b, float bladeRadius, out float t, float lookAhead = 0f)
@@ -38,14 +53,25 @@ public class ProtoCrate : ProtoTarget
     public override HitOutcome OnBladeHit(ProtoBlade blade, Vector3 point, Vector3 bladeDirection)
     {
         blade.StickInto(transform, point);
-        body.AddForce(bladeDirection.normalized * bladeImpulse + Vector3.up * 1.5f, ForceMode.VelocityChange);
-        body.AddTorque(Random.insideUnitSphere * 8f, ForceMode.VelocityChange);
+        if (body.isKinematic)
+        {
+            wobble = 1f;
+            ProtoFX.Clang(point);
+        }
+        else
+        {
+            body.AddForce(bladeDirection.normalized * bladeImpulse + Vector3.up * 1.5f, ForceMode.VelocityChange);
+            body.AddTorque(Random.insideUnitSphere * 8f, ForceMode.VelocityChange);
+        }
         ProtoGame.instance.OnCrateHit(point);
         return HitOutcome.Blocked;
     }
 
     public void Blast(Vector3 center, float impulse)
     {
+        body.isKinematic = false;
+        transform.localScale = baseScale;
+        wobble = 0f;
         Vector3 away = (box.bounds.center - center).normalized;
         body.AddForce(away * impulse + Vector3.up * impulse * 0.6f, ForceMode.VelocityChange);
         body.AddTorque(Random.insideUnitSphere * 12f, ForceMode.VelocityChange);
