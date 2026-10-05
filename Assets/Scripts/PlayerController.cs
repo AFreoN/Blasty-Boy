@@ -102,13 +102,13 @@ public class PlayerController : MonoBehaviour
 
         if(isRunning)
         {
-            rb.velocity = runDirection * runSpeed * Time.fixedDeltaTime * 50;
+            rb.linearVelocity = runDirection * runSpeed * Time.fixedDeltaTime * 50;
             if(Vector3.Distance(transform.position, LevelManager.endPoints[currentBoardsIndex].position) < .5f)
             {
                 isRunning = false;
                 isJumping = true;
 
-                rb.velocity = Extension.CalculateVelocity(transform, LevelManager.startPoints[currentBoardsIndex + 1], jumpTime);
+                rb.linearVelocity = Extension.CalculateVelocity(transform, LevelManager.startPoints[currentBoardsIndex + 1], jumpTime);
                 anim.SetTrigger("jump");
             }
         }
@@ -284,7 +284,7 @@ public class PlayerController : MonoBehaviour
     public void OnThrow()
     {
         Rigidbody r = PrefabManager.throwingBladePrefab.Instantiate(hand.position).GetComponent<Rigidbody>();
-        r.velocity = CalculateVelocity(endPoint.position, hand.position, throwTime);
+        r.linearVelocity = CalculateVelocity(endPoint.position, hand.position, throwTime);
         currentBlade = r;
         FunctionTimer.Create(() => { ready = true; }, .2f);
 
@@ -341,7 +341,7 @@ public class PlayerController : MonoBehaviour
             currentBoardsIndex++;
             ChangeEndpoint();
 
-            rb.velocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
             anim.SetBool("run", false);
             anim.SetTrigger("land");
             isJumping = false;
@@ -352,7 +352,7 @@ public class PlayerController : MonoBehaviour
 
         if(collision.gameObject.CompareTag(TagsLayers.finishLineTag) && GameManager.gameState != GAMESTATE.Win)
         {
-            rb.velocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
             anim.SetBool("run", false);
             anim.SetTrigger("land");
             isJumping = false;
@@ -409,7 +409,7 @@ public class PlayerController : MonoBehaviour
 
     public void DisableInput()
     {
-        rb.velocity = Vector3.zero;
+        rb.linearVelocity = Vector3.zero;
         haveInput = false;
         projectionLine.enabled = false;
         ready = false;

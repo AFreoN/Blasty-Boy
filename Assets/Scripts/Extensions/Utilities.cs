@@ -519,12 +519,12 @@ namespace CustomExtensions
         #region RigidBody
         public static void ChangeDirection(this Rigidbody rigidbody, Vector3 direction)
         {
-            rigidbody.velocity = direction * rigidbody.velocity.magnitude;
+            rigidbody.linearVelocity = direction * rigidbody.linearVelocity.magnitude;
         }
 
         public static void SetVelocityIgnoringY(this Rigidbody rigidbody, Vector3 velocity)
         {
-            rigidbody.velocity = Vector3.up * rigidbody.velocity.y + velocity;
+            rigidbody.linearVelocity = Vector3.up * rigidbody.linearVelocity.y + velocity;
         }
         #endregion
 

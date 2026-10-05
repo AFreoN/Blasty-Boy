@@ -197,7 +197,7 @@ public class EnemyController : MonoBehaviour
             case ENEMYTYPE.PathWalker:
                 Vector3 walkDirection = (walking.path[walking.currentPoint].position.ReplaceY(transform.position.y) - transform.position).normalized;
                 transform.forward = walkDirection;
-                rb.velocity = walkDirection * walking.walkingSpeed * Time.fixedDeltaTime * 50;
+                rb.linearVelocity = walkDirection * walking.walkingSpeed * Time.fixedDeltaTime * 50;
 
                 if(Vector3.Distance(transform.position, walking.path[walking.currentPoint].position.ReplaceY(transform.position.y)) < .1f)
                 {
@@ -216,16 +216,16 @@ public class EnemyController : MonoBehaviour
                 else
                 {
                     anim.SetBool(Nwalking, false);
-                    rb.velocity = Vector3.zero;
+                    rb.linearVelocity = Vector3.zero;
                     return;
                 }
                 walkDirection = (player.position.ReplaceY(transform.position.y) - transform.position).normalized;
                 transform.forward = walkDirection;
-                rb.velocity = walkDirection * chasing.chaseSpeed * Time.fixedDeltaTime * 50;
+                rb.linearVelocity = walkDirection * chasing.chaseSpeed * Time.fixedDeltaTime * 50;
 
                 if(Vector3.Distance(transform.position, player.position) <= chasing.chaseAttackDistance)
                 {
-                    rb.velocity = Vector3.zero;
+                    rb.linearVelocity = Vector3.zero;
                     anim.SetBool(Nattacking,true);
                     anim.SetBool(Nwalking, false);
                 }
@@ -241,16 +241,16 @@ public class EnemyController : MonoBehaviour
                 else
                 {
                     anim.SetBool(Nwalking, false);
-                    rb.velocity = Vector3.zero;
+                    rb.linearVelocity = Vector3.zero;
                     return;
                 }
                 walkDirection = (target.position.ReplaceY(transform.position.y) - transform.position).normalized;
                 transform.forward = walkDirection;
-                rb.velocity = walkDirection * bullying.chaseSpeed * Time.fixedDeltaTime * 50;
+                rb.linearVelocity = walkDirection * bullying.chaseSpeed * Time.fixedDeltaTime * 50;
 
                 if (Vector3.Distance(transform.position, target.position) <= bullying.chaseAttackDistance)
                 {
-                    rb.velocity = Vector3.zero;
+                    rb.linearVelocity = Vector3.zero;
                     anim.SetBool(Nattacking, true);
                     anim.SetBool(Nwalking, false);
 
