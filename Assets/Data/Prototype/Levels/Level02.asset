@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de186173b8b3a6d4897335a002405951, type: 3}
+  m_Name: Level02
+  m_EditorClassIdentifier: Assembly-CSharp::ProtoLevel
+  title: RIOT SQUAD
+  ending: 0
+  bossHealth: 0
+  rooftops:
+  - title: WARM UP
+    hint: 
+    speedMultiplier: 0.7
+    spawns:
+    - kind: 0
+      position: {x: 3, y: 9.2}
+      delay: 0
+    - kind: 0
+      position: {x: 3.3, y: 13}
+      delay: 0.15
+    - kind: 0
+      position: {x: -2.8, y: 10.1}
+      delay: 0.3
+    - kind: 0
+      position: {x: -2.3, y: 15.8}
+      delay: 0.45
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 3
+  - title: RIOT SHIELDS
+    hint: SHIELDS BLOCK. BEND AROUND THEM!
+    speedMultiplier: 0.8
+    spawns:
+    - kind: 1
+      position: {x: -1.5, y: 8.5}
+      delay: 0
+    - kind: 1
+      position: {x: 0, y: 8.5}
+      delay: 0.15
+    - kind: 1
+      position: {x: 1.5, y: 8.5}
+      delay: 0.3
+    - kind: 0
+      position: {x: -3.2, y: 14}
+      delay: 0.5
+    - kind: 0
+      position: {x: 3.4, y: 13.5}
+      delay: 0.6
+    - kind: 0
+      position: {x: 0, y: 16.5}
+      delay: 0.7
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 6
+  - title: SHIELD WALL
+    hint: HIT SHIELDS FROM THE SIDE!
+    speedMultiplier: 0.85
+    spawns:
+    - kind: 1
+      position: {x: -3, y: 9}
+      delay: 0
+    - kind: 1
+      position: {x: -1, y: 9}
+      delay: 0.1
+    - kind: 1
+      position: {x: 1, y: 9}
+      delay: 0.2
+    - kind: 1
+      position: {x: 3, y: 9}
+      delay: 0.3
+    - kind: 0
+      position: {x: -2, y: 14}
+      delay: 0.5
+    - kind: 0
+      position: {x: 2, y: 14}
+      delay: 0.6
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 4
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 6

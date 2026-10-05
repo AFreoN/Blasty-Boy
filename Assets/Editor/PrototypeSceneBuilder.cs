@@ -8,6 +8,8 @@ using UnityEngine.SceneManagement;
 // Builds the rooftop-chase prototype scene and its gameplay prefabs. Safe to re-run: it overwrites
 // Assets/Scenes/Prototype.unity, Assets/Prefabs/Prototype/* and Assets/Materials/Prototype/*, and never modifies the
 // original game's scenes or prefabs. Run Tools > Prototype > Art > Build All first (characters + controllers).
+// Level content isn't generated: the ProtoLevel assets in Assets/Data/Prototype/Levels are hand-tuned, and the builder
+// only wires them into the scene in file-name order.
 public static class PrototypeSceneBuilder
 {
     const string scenePath = "Assets/Scenes/Prototype.unity";
@@ -20,7 +22,8 @@ public static class PrototypeSceneBuilder
     // Asset Store content installed locally (gitignored). Everything that uses it is optional.
     const string storeDir = "Assets/_Store";
     const string skinPath = "Assets/Art/UI/UISkin.asset";
-    const int rooftopCount = 5;
+    const string levelDir = "Assets/Data/Prototype/Levels";
+    const int rooftopCount = ProtoLevel.SceneRooftops;
     const float zoneSpacing = 34f;
 
     struct Materials { public Material alpha, additive, aimLine, roof, brick, trim, metal, shadowClone; }
@@ -356,7 +359,7 @@ public static class PrototypeSceneBuilder
         SetField(director, "barrelPrefab", prefabs.barrel.GetComponent<ProtoBarrel>());
         SetField(director, "cratePrefab", prefabs.crate.GetComponent<ProtoCrate>());
         SetField(director, "boss", boss.GetComponent<ProtoBoss>());
-        director.EditorAssignDefaultWaves();
+        AssignLevels(director);
         EditorUtility.SetDirty(director);
 
         if (!EditorSceneManager.SaveScene(scene, scenePath))
@@ -367,6 +370,29 @@ public static class PrototypeSceneBuilder
         EditorSceneManager.CloseScene(scene, true);
         if (openedGame)
             EditorSceneManager.CloseScene(game, true);
+    }
+
+    // Every ProtoLevel in the levels folder, in file-name order (Level01, Level02...).
+    static void AssignLevels(ProtoGame director)
+    {
+        var levels = AssetDatabase.FindAssets("t:ProtoLevel", new[] { levelDir })
+            .Select(guid => AssetDatabase.LoadAssetAtPath<ProtoLevel>(AssetDatabase.GUIDToAssetPath(guid)))
+            .OrderBy(level => level.name, System.StringComparer.Ordinal)
+            .ToList();
+        if (levels.Count == 0)
+            throw new System.Exception("No ProtoLevel assets in " + levelDir);
+        foreach (ProtoLevel level in levels)
+        {
+            if (level.rooftops.Count == 0 || level.rooftops.Count > level.MaxRooftops)
+                throw new System.Exception(level.name + " has " + level.rooftops.Count + " rooftops; " + level.ending + " levels take 1-" + level.MaxRooftops);
+        }
+
+        var so = new SerializedObject(director);
+        SerializedProperty prop = so.FindProperty("levels");
+        prop.arraySize = levels.Count;
+        for (int i = 0; i < levels.Count; i++)
+            prop.GetArrayElementAtIndex(i).objectReferenceValue = levels[i];
+        so.ApplyModifiedPropertiesWithoutUndo();
     }
 
     // City-kit buildings flanking the chase corridor, a few rising above roof level for a skyline, the rest dropping

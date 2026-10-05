@@ -7,8 +7,8 @@ using UnityEngine.UI;
 
 public struct ProtoRunSummary
 {
-    public bool won;
-    public int score, rooftops, totalRooftops, bossDamage, bossMaxHealth, bestMulti, accuracy, storms, seconds, stars;
+    public bool won, knockout, lastLevel, nextIsBoss;
+    public int level, score, rooftops, totalRooftops, bossDamage, bossMaxHealth, bestMulti, accuracy, storms, seconds, stars;
 }
 
 public enum CalloutPriority { Low = 0, Medium = 1, High = 2, Top = 3 }
@@ -109,7 +109,15 @@ public class ProtoHUD : MonoBehaviour
 
     // screens
     GameObject menuPanel, endPanel, pausePanel;
-    TextMeshProUGUI endTitle, endSub;
+    TextMeshProUGUI endTitle, endSub, endButtonLabel, menuLevel;
+    Button endButton;
+    Image menuPlay;
+
+    // boss intro
+    RectTransform bossIntroRoot, bossIntroBand, bossIntroTitle, bossIntroIcon;
+    RectTransform[] bossIntroTickers;
+    TextMeshProUGUI bossIntroName;
+    Image bossIntroDim;
     Image endRibbon;
     Image[] endStars;
     TextMeshProUGUI[] endTileValues;
@@ -131,12 +139,22 @@ public class ProtoHUD : MonoBehaviour
         instance = this;
         cam = Camera.main;
         font = skin != null && skin.font != null ? skin.font : TMP_Settings.defaultFontAsset;
+        // Dynamic atlases add glyphs on first use, which can flash as blocks for a frame (e.g. when the boss intro
+        // slams in), so add the usual set up front.
+        if (font != null && font.atlasPopulationMode == AtlasPopulationMode.Dynamic)
+            font.TryAddCharacters("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !?.,:;'\"-+/%()x");
         Build();
     }
 
     #region Public API
-    public void ShowMenu()
+    public void ShowMenu(int level, string title, bool bossFight)
     {
+        if (bossFight)
+            title = "<color=#FF4D4D>BOSS FIGHT!</color>";
+        else if (!string.IsNullOrEmpty(title))
+            title = "<color=#FFD54A>" + title + "</color>";
+        menuLevel.text = "LEVEL " + level + (string.IsNullOrEmpty(title) ? "" : "  " + title);
+        SetButtonStyle(menuPlay, bossFight ? skin?.buttonRed : skin?.buttonYellow, bossFight ? red : gold);
         menuPanel.SetActive(true);
         endPanel.SetActive(false);
         SetGameplayVisible(false);
@@ -159,15 +177,24 @@ public class ProtoHUD : MonoBehaviour
         }
     }
 
-    public void SetWave(int wave, int total)
+    // One node per rooftop in this level; a showdown level puts the boss crown on the last one.
+    public void SetWave(int wave, int total, bool showdownLast)
     {
         for (int i = 0; i < stageNodes.Length; i++)
         {
+            Image node = stageNodes[i];
+            node.gameObject.SetActive(i < total);
+            if (i >= total)
+                continue;
+            bool crown = showdownLast && i == total - 1;
+            node.sprite = crown ? skinOr(skin?.iconCrown, ProtoArt.Star) : skinOr(skin?.stageNode, ProtoArt.Circle);
+            node.rectTransform.sizeDelta = crown ? new Vector2(52f, 52f) : new Vector2(28f, 28f);
+            node.rectTransform.anchoredPosition = new Vector2(total > 1 ? -100f + i * 200f / (total - 1) : 0f, 10f);
             bool done = i < wave - 1, current = i == wave - 1;
-            stageNodes[i].color = current ? gold : done ? new Color(0.45f, 0.9f, 0.45f) : new Color(1f, 1f, 1f, 0.35f);
-            stageNodes[i].rectTransform.localScale = Vector3.one * (current ? 1.3f : 1f);
+            node.color = current ? gold : done ? new Color(0.45f, 0.9f, 0.45f) : new Color(1f, 1f, 1f, 0.35f);
+            node.rectTransform.localScale = Vector3.one * (current ? 1.3f : 1f);
         }
-        stageLabel.text = wave >= total ? "SHOWDOWN" : "ROOFTOP " + wave + "/" + total;
+        stageLabel.text = showdownLast && wave >= total ? "SHOWDOWN" : "ROOFTOP " + wave + "/" + total;
     }
 
     public void SetScore(int score, bool punch)
@@ -215,6 +242,18 @@ public class ProtoHUD : MonoBehaviour
     public void Banner(string title, string subtitle, float hold, bool gold = false)
     {
         StartBanner(title, subtitle, hold, gold ? skinOr(skin?.ribbonYellow) : skinOr(skin?.ribbonOrange), gold ? new Color(1f, 0.75f, 0.1f) : new Color(1f, 0.5f, 0.15f), -1);
+    }
+
+    // Opens a boss level: the screen dims, a red warning band with scrolling tickers sweeps in, and BOSS FIGHT! slams
+    // down over the boss's name. Takes about 2.2 s; ProtoGame times its sounds and camera to the slam at 0.3 s.
+    public void BossIntro(string bossName, string subtitle)
+    {
+        if (bannerRoutine != null)
+            StopCoroutine(bannerRoutine);
+        bannerRoot.gameObject.SetActive(false);
+        HideHint();
+        bossIntroName.text = bossName + (string.IsNullOrEmpty(subtitle) ? "" : "\n<size=55%><color=#FFD54A>" + subtitle + "</color></size>");
+        StartCoroutine(BossIntroRoutine());
     }
 
     // "ROOFTOP CLEAR!" with stars for hearts kept, each landing on a beat with its stinger.
@@ -269,10 +308,23 @@ public class ProtoHUD : MonoBehaviour
     {
         SetGameplayVisible(false);
         endPanel.SetActive(true);
-        endTitle.text = s.won ? "VICTORY!" : "KNOCKED OUT!";
+        endTitle.text = !s.won ? "KNOCKED OUT!" : s.knockout ? "VICTORY!" : "LEVEL " + s.level + " CLEAR!";
         endRibbon.sprite = s.won ? skinOr(skin?.ribbonGreen) : skinOr(skin?.ribbonOrange);
         endRibbon.color = endRibbon.sprite == ProtoArt.Sprite(ProtoArt.Square) ? (s.won ? new Color(0.3f, 0.8f, 0.3f) : new Color(0.9f, 0.35f, 0.2f)) : Color.white;
-        endSub.text = (s.won ? "BIG BEAR IS DOWN!" : "BIG BEAR GOT AWAY...") + "\n<size=70%>ROOFTOPS " + s.rooftops + "/" + s.totalRooftops + "   STORMS " + s.storms + "   TIME " + s.seconds + "s</size>";
+        string headline = !s.won ? "BIG BEAR GOT AWAY..." : s.knockout ? "BIG BEAR IS DOWN!" : "HE GOT AWAY! AFTER HIM!";
+        if (s.won && s.lastLevel)
+            headline += "\n<size=70%>ALL LEVELS CLEARED. MORE COMING SOON!</size>";
+        endSub.text = headline + "\n<size=70%>ROOFTOPS " + s.rooftops + "/" + s.totalRooftops + "   STORMS " + s.storms + "   TIME " + s.seconds + "s</size>";
+        endButtonLabel.text = !s.won ? "TRY AGAIN" : s.lastLevel ? "PLAY AGAIN" : s.nextIsBoss ? "NEXT: BOSS FIGHT!" : "NEXT LEVEL";
+        endButtonLabel.fontSize = endButtonLabel.text.Length > 12 ? 56f : 72f;
+        bool bossNext = s.won && s.nextIsBoss;
+        SetButtonStyle(endButton.image, bossNext ? skin?.buttonRed : skin?.buttonGreen, bossNext ? red : new Color(0.3f, 0.85f, 0.35f));
+        endButton.onClick.RemoveAllListeners();
+        endButton.onClick.AddListener(() => ProtoAudio.Play(Sfx.Pop, 0.7f, 1.3f));
+        if (s.won)
+            endButton.onClick.AddListener(() => ProtoGame.instance.NextLevel());
+        else
+            endButton.onClick.AddListener(() => ProtoGame.instance.Retry());
         endTileValues[0].text = s.score.ToString("N0");
         endTileValues[1].text = s.bossDamage + "/" + s.bossMaxHealth;
         endTileValues[2].text = "x" + s.bestMulti;
@@ -657,6 +709,32 @@ public class ProtoHUD : MonoBehaviour
         bannerRoot.gameObject.SetActive(false);
     }
 
+    IEnumerator BossIntroRoutine()
+    {
+        const float hold = 1.6f;
+        bossIntroRoot.gameObject.SetActive(true);
+        CanvasGroup group = bossIntroRoot.GetComponent<CanvasGroup>();
+        group.alpha = 1f;
+        float total = 0.35f + hold + 0.25f;
+        for (float t = 0f; t < total; t += Time.unscaledDeltaTime)
+        {
+            float bandIn = OutBack(Mathf.Clamp01(t / 0.18f));
+            float titleIn = Mathf.Clamp01((t - 0.12f) / 0.2f);
+            float exit = Mathf.Clamp01((t - 0.35f - hold) / 0.25f);
+
+            bossIntroDim.color = new Color(0f, 0f, 0f, 0.5f * Mathf.Clamp01(t / 0.15f) * (1f - exit));
+            bossIntroBand.localScale = new Vector3(1f, Mathf.LerpUnclamped(0f, 1f, bandIn) * (1f - exit), 1f);
+            bossIntroTitle.localScale = Vector3.one * (titleIn <= 0f ? 0f : Mathf.LerpUnclamped(2.6f, 1f, OutBack(titleIn)));
+            bossIntroIcon.localScale = Vector3.one * (1f + 0.1f * Mathf.Sin(t * 9f) * (1f - exit));
+            // The two tickers scroll in opposite directions and wrap every 700 px (one repeat of their text).
+            for (int i = 0; i < bossIntroTickers.Length; i++)
+                bossIntroTickers[i].anchoredPosition = new Vector2((i == 0 ? -1f : 1f) * Mathf.Repeat(t * 260f, 700f), 0f);
+            group.alpha = 1f - exit;
+            yield return null;
+        }
+        bossIntroRoot.gameObject.SetActive(false);
+    }
+
     IEnumerator EndSequence(int stars)
     {
         RectTransform title = endRibbon.rectTransform;
@@ -734,7 +812,7 @@ public class ProtoHUD : MonoBehaviour
         scoreText = Label("Value", scorePill, "0", 54f, Color.white, TextAlignmentOptions.MidlineRight, new Vector2(1f, 0.5f), new Vector2(-28f, 2f), new Vector2(200f, 90f));
         scoreText.rectTransform.pivot = new Vector2(1f, 0.5f);
 
-        // Rooftop progress (top-centre): five nodes, the boss on the last one.
+        // Rooftop progress (top-centre): one node per rooftop, laid out by SetWave.
         var stage = Rect("Stage", root, new Vector2(0.5f, 1f), new Vector2(-8f, -55f), new Vector2(250f, 100f));
         Img("Path", stage, null, new Color(1f, 1f, 1f, 0.25f), Mid, new Vector2(0f, 10f), new Vector2(200f, 6f));
         stageNodes = new Image[5];
@@ -821,6 +899,33 @@ public class ProtoHUD : MonoBehaviour
             bubbleRoot.GetComponent<Image>().type = Image.Type.Sliced;
         bubbleText = Label("Line", bubbleRoot, "", 38f, new Color(0.15f, 0.12f, 0.2f), Center, Mid, Vector2.zero, new Vector2(400f, 100f), false);
         bubbleRoot.gameObject.SetActive(false);
+
+        BuildBossIntro();
+    }
+
+    void BuildBossIntro()
+    {
+        bossIntroRoot = Rect("BossIntro", root, Mid, Vector2.zero, Vector2.zero);
+        Stretch(bossIntroRoot);
+        bossIntroRoot.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
+        bossIntroDim = Img("Dim", bossIntroRoot, null, Color.clear, Mid, Vector2.zero, Vector2.zero);
+        Stretch(bossIntroDim.rectTransform);
+
+        bossIntroBand = Img("Band", bossIntroRoot, null, new Color(0.32f, 0.02f, 0.06f, 0.94f), Mid, new Vector2(0f, 180f), new Vector2(1400f, 560f)).rectTransform;
+        bossIntroTickers = new RectTransform[2];
+        for (int i = 0; i < 2; i++)
+        {
+            float y = i == 0 ? 245f : -245f;
+            Image bar = Img("Ticker", bossIntroBand, null, new Color(0.95f, 0.12f, 0.15f), Mid, new Vector2(0f, y), new Vector2(1400f, 70f));
+            bar.gameObject.AddComponent<RectMask2D>();
+            // Wide enough to cover the screen while it scrolls by one 700 px repeat.
+            string line = string.Concat(System.Linq.Enumerable.Repeat("BOSS FIGHT  ///  ", 8));
+            bossIntroTickers[i] = Label("Text", bar.transform, line, 44f, Color.white, Center, Mid, Vector2.zero, new Vector2(2800f, 70f)).rectTransform;
+        }
+        bossIntroIcon = Img("Icon", bossIntroBand, skinOr(skin?.iconBoss, ProtoArt.Star), skin?.iconBoss != null ? Color.white : gold, Mid, new Vector2(0f, 120f), new Vector2(190f, 190f)).rectTransform;
+        bossIntroTitle = Label("Title", bossIntroBand, "BOSS FIGHT!", 150f, new Color(1f, 0.3f, 0.25f), Center, Mid, new Vector2(0f, -30f), new Vector2(1000f, 170f)).rectTransform;
+        bossIntroName = Label("Name", bossIntroBand, "", 72f, Color.white, Center, Mid, new Vector2(0f, -150f), new Vector2(1000f, 120f));
+        bossIntroRoot.gameObject.SetActive(false);
     }
 
     void BuildPips(int count)
@@ -890,9 +995,10 @@ public class ProtoHUD : MonoBehaviour
 
         Label("HowTo", panel.transform, "HOLD to aim  -  SLIDE to bend  -  RELEASE to throw", 36f, Color.white, Center, Mid, new Vector2(0f, -150f), new Vector2(1000f, 60f));
         Label("HowTo2", panel.transform, "Line up multi-kills to charge the <color=#C77DFF>SHADOW STORM</color>", 36f, Color.white, Center, Mid, new Vector2(0f, -205f), new Vector2(1000f, 60f));
+        menuLevel = Label("Level", panel.transform, "LEVEL 1", 56f, Color.white, Center, Mid, new Vector2(0f, -300f), new Vector2(1000f, 80f));
 
-        Image play = Btn("Play", panel.transform, skin?.buttonYellow, "PLAY", gold, Mid, new Vector2(0f, -470f), new Vector2(560f, 200f), () => ProtoGame.instance.StartRun());
-        StartCoroutine(Breathe(play.rectTransform));
+        menuPlay = Btn("Play", panel.transform, skin?.buttonYellow, "PLAY", gold, Mid, new Vector2(0f, -470f), new Vector2(560f, 200f), () => ProtoGame.instance.StartRun());
+        StartCoroutine(Breathe(menuPlay.rectTransform));
     }
 
     void BuildEnd()
@@ -924,7 +1030,10 @@ public class ProtoHUD : MonoBehaviour
             Label("Name", tile.transform, titles[i], 30f, gold, Center, Mid, new Vector2(0f, -88f), new Vector2(380f, 40f));
         }
 
-        Btn("Again", panel.transform, skin?.buttonGreen, "PLAY AGAIN", new Color(0.3f, 0.85f, 0.35f), Mid, new Vector2(0f, -520f), new Vector2(600f, 190f), () => ProtoGame.instance.Restart());
+        // Its label and action are set per result in ShowEnd.
+        Image again = Btn("Again", panel.transform, skin?.buttonGreen, "NEXT LEVEL", new Color(0.3f, 0.85f, 0.35f), Mid, new Vector2(0f, -520f), new Vector2(600f, 190f), () => { });
+        endButton = again.GetComponent<Button>();
+        endButtonLabel = again.GetComponentInChildren<TextMeshProUGUI>();
         endPanel.SetActive(false);
     }
 
@@ -936,7 +1045,7 @@ public class ProtoHUD : MonoBehaviour
         pausePanel = panel.gameObject;
         Label("Title", panel.transform, "PAUSED", 140f, Color.white, Center, Mid, new Vector2(0f, 300f), new Vector2(900f, 200f));
         Btn("Resume", panel.transform, skin?.buttonGreen, "RESUME", new Color(0.3f, 0.85f, 0.35f), Mid, new Vector2(0f, 20f), new Vector2(560f, 180f), () => ProtoGame.instance.TogglePause());
-        Btn("Restart", panel.transform, skin?.buttonBlue, "RESTART", new Color(0.25f, 0.55f, 0.95f), Mid, new Vector2(0f, -200f), new Vector2(560f, 160f), () => ProtoGame.instance.Restart());
+        Btn("Restart", panel.transform, skin?.buttonBlue, "RESTART", new Color(0.25f, 0.55f, 0.95f), Mid, new Vector2(0f, -200f), new Vector2(560f, 160f), () => ProtoGame.instance.Retry());
         pausePanel.SetActive(false);
     }
 
@@ -958,6 +1067,13 @@ public class ProtoHUD : MonoBehaviour
     static readonly Vector2 Mid = new Vector2(0.5f, 0.5f);
 
     Sprite skinOr(Sprite s) => s != null ? s : ProtoArt.Sprite(ProtoArt.Square);
+
+    // Swap a button's art; without the kit, tint the plain fallback sprite instead.
+    static void SetButtonStyle(Image button, Sprite sprite, Color fallback)
+    {
+        button.sprite = sprite != null ? sprite : ProtoArt.Sprite(ProtoArt.Square);
+        button.color = sprite != null ? Color.white : fallback;
+    }
     Sprite skinOr(Sprite s, Texture2D fallback) => s != null ? s : ProtoArt.Sprite(fallback);
 
     IEnumerator Punch(RectTransform rt, float amount, float duration)

@@ -20,14 +20,25 @@ public class ProtoBarrel : ProtoTarget
     bool exploded;
     PredictState predicted;
     Vector3 baseScale;
+    Collider shape;
 
-    private void Awake() => baseScale = transform.localScale;
+    private void Awake()
+    {
+        baseScale = transform.localScale;
+        shape = GetComponent<Collider>();
+    }
 
     private void Update()
     {
         // Predicted barrels throb so the player notices the opportunity.
         float pulse = predicted == PredictState.Hit ? 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 20f) : 1f;
         transform.localScale = baseScale * pulse;
+    }
+
+    public override bool BlocksWalking(out Bounds footprint)
+    {
+        footprint = shape.bounds;
+        return !exploded;
     }
 
     public override PredictState Predict(Vector3 bladeDirection) => PredictState.Hit;

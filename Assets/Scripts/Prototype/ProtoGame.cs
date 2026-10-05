@@ -5,38 +5,10 @@ using UnityEngine.SceneManagement;
 using CustomExtensions;
 
 public enum ProtoState { Menu, WaveIntro, Playing, WaveClear, Chase, Won, Lost }
-public enum ProtoSpawnKind { Grunt, Shield, Runner, Guard, Hostage, Barrel, Crate }
 
-[System.Serializable]
-public class ProtoSpawn
-{
-    public ProtoSpawnKind kind;
-    [Tooltip("x = sideways (-5.5..5.5), y = distance from the start of the rooftop (5..18)")]
-    public Vector2 position;
-    [Tooltip("Seconds after the wave starts before this one drops in")]
-    public float delay;
-
-    public ProtoSpawn(ProtoSpawnKind kind, float x, float z, float delay = 0f)
-    {
-        this.kind = kind;
-        position = new Vector2(x, z);
-        this.delay = delay;
-    }
-}
-
-[System.Serializable]
-public class ProtoWave
-{
-    public string title;
-    public string hint;
-    public float speedMultiplier = 1f;
-    [Tooltip("The showdown rooftop: goons keep coming until the boss is down")]
-    public bool finale;
-    public List<ProtoSpawn> spawns = new List<ProtoSpawn>();
-}
-
-// Runs the rooftop chase: one wave of goons per rooftop, Big Bear at the far end of each, a run-and-leap chase between
-// rooftops, and a showdown on the last one. Also owns the feedback ladder for kills (OnKill) and the Fever meter.
+// Runs a level of the rooftop chase: one wave of goons per rooftop, Big Bear at the far end of each, a run-and-leap
+// chase between rooftops, and either his escape or a showdown at the end. Tracks level progress, and owns the
+// feedback ladder for kills (OnKill) and the Fever meter.
 public class ProtoGame : MonoBehaviour
 {
     public static ProtoGame instance { get; private set; }
@@ -61,9 +33,9 @@ public class ProtoGame : MonoBehaviour
 
     [Header("Rules")]
     [SerializeField] int maxHearts = 3;
-    [SerializeField] float gruntSpeed = 0.55f;
-    [SerializeField] float shieldSpeed = 0.4f;
-    [SerializeField] float runnerSpeed = 1.5f;
+    [SerializeField] float gruntSpeed = 1.1f;
+    [SerializeField] float shieldSpeed = 0.8f;
+    [SerializeField] float runnerSpeed = 3f;
     [SerializeField] int killScore = 100;
     [SerializeField] int flankBonus = 150;
     [SerializeField] int rescueBonus = 500;
@@ -75,12 +47,19 @@ public class ProtoGame : MonoBehaviour
     [SerializeField] float feverPerExtraKill = 0.14f;
     [SerializeField] float feverDuration = 6f;
 
-    [Header("Waves (one per rooftop)")]
-    [SerializeField] List<ProtoWave> waves = new List<ProtoWave>();
+    [Header("Levels (played in order; progress is saved)")]
+    [SerializeField] List<ProtoLevel> levels = new List<ProtoLevel>();
+
+    const string levelKey = "Proto.Level";
+    // Set by Next Level / Retry so the reloaded scene starts playing without the title menu.
+    static bool skipMenu;
 
     public ProtoState state { get; private set; } = ProtoState.Menu;
     public int WaveIndex => waveIndex;
     public int WaveCount => waves.Count;
+    public int LevelNumber => levelIndex + 1;
+    public int LevelCount => levels.Count;
+    public ProtoLevel Level => level;
     public int Hearts => hearts;
     public int MaxHearts => maxHearts;
     public int Score => score;
@@ -89,6 +68,9 @@ public class ProtoGame : MonoBehaviour
     public ProtoBoss Boss => boss;
     public float FeverCharge => feverCharge;
 
+    ProtoLevel level;
+    List<ProtoWave> waves;
+    int levelIndex;
     int waveIndex;
     int hearts;
     int score;
@@ -109,17 +91,38 @@ public class ProtoGame : MonoBehaviour
     private void Awake()
     {
         instance = this;
-        if (waves.Count == 0)
-            waves = DefaultWaves();
+        levelIndex = levels.Count > 0 ? Mathf.Clamp(SavedLevel, 0, levels.Count - 1) : 0;
+        level = levels.Count > 0 ? levels[levelIndex] : null;
+        waves = level != null ? level.rooftops : new List<ProtoWave>();
     }
 
     private void Start()
     {
         state = ProtoState.Menu;
         boss.Place(ZoneOrigin(0) + bossOffset);
+        if (level != null && level.bossHealth > 0)
+            boss.SetMaxHealth(level.bossHealth);
         ProtoCamera.instance.Hold(ZoneOrigin(0));
-        ProtoHUD.instance.ShowMenu();
+        if (level == null)
+        {
+            Debug.LogError("ProtoGame has no levels. Rebuild the scene (Tools > Prototype > Build Prototype Scene).");
+            return;
+        }
+        if (skipMenu)
+        {
+            skipMenu = false;
+            StartRun();
+            return;
+        }
+        ProtoHUD.instance.ShowMenu(LevelNumber, level.title, level.ending == ProtoLevelEnding.Knockout);
         ProtoMusic.Play(MusicCue.Menu);
+    }
+
+    // 0-based index of the level the player is on, saved between sessions.
+    public static int SavedLevel
+    {
+        get => PlayerPrefs.GetInt(levelKey, 0);
+        set { PlayerPrefs.SetInt(levelKey, Mathf.Max(0, value)); PlayerPrefs.Save(); }
     }
 
     private void Update()
@@ -146,12 +149,24 @@ public class ProtoGame : MonoBehaviour
         feverCharge = 0f;
         throws = throwsOnTarget = kills = bestMulti = damageTaken = rescues = bossDamage = fevers = 0;
         runStart = Time.time;
-        ProtoTelemetry.BeginSession("rooftops");
+        ProtoTelemetry.BeginSession("level " + LevelNumber);
         ProtoHUD.instance.HideMenu();
         ProtoHUD.instance.SetHearts(hearts, false);
         ProtoHUD.instance.SetScore(score, false);
         ProtoThrower.instance.ResetQuiver();
         StartCoroutine(BeginWave(0));
+    }
+
+    public void NextLevel()
+    {
+        skipMenu = true;
+        Restart();
+    }
+
+    public void Retry()
+    {
+        skipMenu = true;
+        Restart();
     }
 
     public void Restart()
@@ -178,18 +193,26 @@ public class ProtoGame : MonoBehaviour
         ClearProps();
 
         ProtoWave wave = waves[index];
-        boss.CanBeKnockedOut = wave.finale;
+        bool showdown = level.IsShowdown(index);
+        boss.CanBeKnockedOut = showdown;
         damageThisRooftop = 0;
         ProtoMusic.Play(MusicCue.GetReady);
-        ProtoMusic.Play(wave.finale ? MusicCue.Showdown : MusicCue.Chase);
-        ProtoHUD.instance.SetWave(index + 1, waves.Count);
-        ProtoHUD.instance.Banner(wave.finale ? "SHOWDOWN!" : "ROOFTOP " + (index + 1), wave.title, 1.4f);
+        ProtoMusic.Play(showdown ? MusicCue.Showdown : MusicCue.Chase);
+        ProtoHUD.instance.SetWave(index + 1, waves.Count, level.ending == ProtoLevelEnding.Knockout);
+        bool bossIntro = index == 0 && level.ending == ProtoLevelEnding.Knockout;
+        if (bossIntro)
+            yield return BossIntro();
+        else if (index == 0)
+            ProtoHUD.instance.Banner("LEVEL " + LevelNumber, string.IsNullOrEmpty(level.title) ? wave.title : level.title, 1.4f);
+        else
+            ProtoHUD.instance.Banner(showdown ? "SHOWDOWN!" : "ROOFTOP " + (index + 1), wave.title, 1.4f);
         if (!string.IsNullOrEmpty(wave.hint))
             ProtoHUD.instance.ShowHint(wave.hint);
         Spawn(wave, ZoneOrigin(index));
         ProtoTelemetry.Log("wave_start", index + 1);
 
-        yield return new WaitForSecondsRealtime(1.5f);
+        // After a boss intro the level has been announced already: just let the goons drop in.
+        yield return new WaitForSecondsRealtime(bossIntro ? 1f : 1.5f);
         waveStart = Time.time;
         state = ProtoState.Playing;
     }
@@ -209,7 +232,7 @@ public class ProtoGame : MonoBehaviour
         ProtoHUD.instance.HideHint();
 
         // Showdown: Big Bear keeps calling in goons until he goes down.
-        if (wave.finale)
+        if (level.IsShowdown(waveIndex))
         {
             state = ProtoState.WaveIntro;
             boss.Taunt();
@@ -242,7 +265,41 @@ public class ProtoGame : MonoBehaviour
         ProtoHaptics.Pulse(40);
         yield return new WaitForSecondsRealtime(2.2f);
 
-        yield return Chase(waveIndex + 1);
+        if (waveIndex == waves.Count - 1)
+            yield return Escape();
+        else
+            yield return Chase(waveIndex + 1);
+    }
+
+    // A boss level opens with a warning: the HUD's BOSS FIGHT! card, timed to a slam, a camera push-in and a taunt.
+    IEnumerator BossIntro()
+    {
+        ProtoHUD.instance.BossIntro(boss.DisplayName, string.IsNullOrEmpty(level.title) ? null : "LEVEL " + LevelNumber + "  -  " + level.title);
+        ProtoCamera.instance.PushIn(true);
+        ProtoAudio.Play(Sfx.Whoosh, 0.9f, 0.6f);
+        yield return new WaitForSecondsRealtime(0.3f);
+        ProtoAudio.Play(Sfx.Boom, 1f, 0.6f);
+        ProtoAudio.Play(Sfx.Thunk, 1f, 0.55f);
+        ProtoCamera.instance.Shake(0.5f);
+        ProtoHaptics.Pulse(80);
+        yield return new WaitForSecondsRealtime(1.65f);
+        ProtoCamera.instance.PushIn(false);
+        boss.Taunt("YOU WANT A PIECE OF ME?!");
+        yield return new WaitForSecondsRealtime(0.25f);
+    }
+
+    // End of an escape level: Big Bear flees to the next rooftop and the level is won. The chase continues next level.
+    IEnumerator Escape()
+    {
+        state = ProtoState.Chase;
+        ClearProps();
+        float edgeZ = ZoneOrigin(waveIndex).z + roofEdge;
+        StartCoroutine(boss.FleeTo(edgeZ, ZoneOrigin(waveIndex + 1) + bossOffset));
+        while (boss.IsBusy)
+            yield return null;
+        boss.Taunt("SEE YOU NEXT TIME, NINJA!");
+        yield return new WaitForSecondsRealtime(1.2f);
+        Win();
     }
 
     IEnumerator Chase(int next)
@@ -266,6 +323,7 @@ public class ProtoGame : MonoBehaviour
     void Win()
     {
         state = ProtoState.Won;
+        SavedLevel = levelIndex + 1 < levels.Count ? levelIndex + 1 : 0;
         ProtoThrower.instance.Celebrate();
         ProtoFX.Confetti(ProtoThrower.instance.transform.position + Vector3.forward);
         ProtoMusic.Play(MusicCue.Victory);
@@ -295,6 +353,10 @@ public class ProtoGame : MonoBehaviour
         return new ProtoRunSummary
         {
             won = won,
+            level = LevelNumber,
+            knockout = level.ending == ProtoLevelEnding.Knockout,
+            lastLevel = levelIndex == levels.Count - 1,
+            nextIsBoss = levelIndex + 1 < levels.Count && levels[levelIndex + 1].ending == ProtoLevelEnding.Knockout,
             score = score,
             rooftops = won ? waves.Count : waveIndex,
             totalRooftops = waves.Count,
@@ -311,7 +373,8 @@ public class ProtoGame : MonoBehaviour
     string SummaryText()
     {
         int accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsOnTarget / throws) : 0;
-        return "SCORE  " + score
+        return "LEVEL  " + LevelNumber
+            + "\nSCORE  " + score
             + "\nROOFTOPS  " + (state == ProtoState.Won ? waves.Count : waveIndex) + " / " + waves.Count
             + "\nBOSS DAMAGE  " + bossDamage + " / " + boss.MaxHealth
             + "\nBEST MULTI-KILL  x" + bestMulti
@@ -643,104 +706,5 @@ public class ProtoGame : MonoBehaviour
         score += amount;
         ProtoHUD.instance.SetScore(score, true);
     }
-    #endregion
-
-    #region Default content
-    // Five rooftops, each introducing one idea, ending in the showdown. Positions are relative to the rooftop origin
-    // and tuned for the default curve (hook 0.5, boss at z = 19.4, ninja at the rooftop origin).
-    public static List<ProtoWave> DefaultWaves()
-    {
-        return new List<ProtoWave>
-        {
-            new ProtoWave
-            {
-                title = "LINE 'EM UP",
-                hint = "HOLD, SLIDE TO BEND, RELEASE!",
-                speedMultiplier = 0.6f,
-                spawns =
-                {
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 3.0f, 9.2f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 3.3f, 13.0f, 0.15f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 2.2f, 16.7f, 0.3f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -2.8f, 10.1f, 0.45f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -2.3f, 15.8f, 0.6f),
-                }
-            },
-            new ProtoWave
-            {
-                title = "RIOT SHIELDS",
-                hint = "SHIELDS BLOCK. BEND AROUND THEM!",
-                speedMultiplier = 0.8f,
-                spawns =
-                {
-                    new ProtoSpawn(ProtoSpawnKind.Shield, -1.5f, 8.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Shield, 0f, 8.5f, 0.15f),
-                    new ProtoSpawn(ProtoSpawnKind.Shield, 1.5f, 8.5f, 0.3f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -3.2f, 14f, 0.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 3.4f, 13.5f, 0.6f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 0f, 16.5f, 0.7f),
-                    new ProtoSpawn(ProtoSpawnKind.Runner, -4.5f, 17.5f, 6f),
-                }
-            },
-            new ProtoWave
-            {
-                title = "KABOOM",
-                hint = "HIT THE BARREL!",
-                speedMultiplier = 0.9f,
-                spawns =
-                {
-                    new ProtoSpawn(ProtoSpawnKind.Barrel, 0f, 12.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Crate, -2.6f, 7.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Crate, 2.6f, 7.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -1.6f, 12.6f, 0.2f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 1.6f, 12.6f, 0.3f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 0f, 14.4f, 0.4f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -0.9f, 10.8f, 0.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 1.0f, 10.9f, 0.6f),
-                    new ProtoSpawn(ProtoSpawnKind.Runner, -4.5f, 17f, 3f),
-                    new ProtoSpawn(ProtoSpawnKind.Runner, 4.5f, 17f, 3.5f),
-                }
-            },
-            new ProtoWave
-            {
-                title = "HOSTAGE",
-                hint = "DON'T HIT THE HOSTAGE!",
-                speedMultiplier = 1f,
-                spawns =
-                {
-                    new ProtoSpawn(ProtoSpawnKind.Hostage, 0f, 13f),
-                    new ProtoSpawn(ProtoSpawnKind.Guard, -1.4f, 13.6f, 0.1f),
-                    new ProtoSpawn(ProtoSpawnKind.Guard, 1.4f, 13.6f, 0.2f),
-                    new ProtoSpawn(ProtoSpawnKind.Guard, 0f, 15.3f, 0.3f),
-                    new ProtoSpawn(ProtoSpawnKind.Shield, -3f, 9.5f, 0.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 3f, 10f, 0.6f),
-                    new ProtoSpawn(ProtoSpawnKind.Runner, 4f, 17.5f, 5f),
-                }
-            },
-            new ProtoWave
-            {
-                title = "TAKE DOWN BIG BEAR",
-                hint = null,
-                speedMultiplier = 1.15f,
-                finale = true,
-                spawns =
-                {
-                    new ProtoSpawn(ProtoSpawnKind.Barrel, 0f, 15.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -3f, 16f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 3f, 16f, 0.2f),
-                    new ProtoSpawn(ProtoSpawnKind.Shield, -1.2f, 10f, 0.3f),
-                    new ProtoSpawn(ProtoSpawnKind.Shield, 1.2f, 10f, 0.4f),
-                    new ProtoSpawn(ProtoSpawnKind.Runner, -4f, 12f, 1f),
-                    new ProtoSpawn(ProtoSpawnKind.Runner, 4f, 12f, 1.5f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, -2f, 17.5f, 3f),
-                    new ProtoSpawn(ProtoSpawnKind.Grunt, 2f, 17.5f, 3.5f),
-                }
-            },
-        };
-    }
-
-#if UNITY_EDITOR
-    public void EditorAssignDefaultWaves() => waves = DefaultWaves();
-#endif
     #endregion
 }

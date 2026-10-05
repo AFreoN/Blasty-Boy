@@ -4,7 +4,8 @@ using CustomExtensions;
 
 // Big Bear, the gang boss. Every throw ends at him, which is what gives the curve a target: a blade that reaches him
 // hurts him, and every goon it cut through on the way adds damage. He taunts, flinches, flees to the next rooftop
-// when a zone is cleared, and gets launched off the roof when his health runs out.
+// when a zone is cleared (escaping for good at the end of most levels), and gets launched off the roof when his
+// health runs out in a showdown.
 public class ProtoBoss : MonoBehaviour
 {
     public static ProtoBoss instance { get; private set; }
@@ -80,10 +81,17 @@ public class ProtoBoss : MonoBehaviour
         }
     }
 
-    public void Taunt()
+    public void Taunt(string line = null)
     {
         anim.CrossFadeInFixedTime("Taunt", 0.15f);
-        ProtoHUD.instance.Taunt(taunts[Random.Range(0, taunts.Length)]);
+        ProtoHUD.instance.Taunt(line ?? taunts[Random.Range(0, taunts.Length)]);
+    }
+
+    // Per-level health, set before the level starts.
+    public void SetMaxHealth(int health)
+    {
+        maxHealth = Mathf.Max(1, health);
+        Health = maxHealth;
     }
 
     // Called when a blade completes its curve. More goons cut on the way = more damage.

@@ -173,5 +173,7 @@ MonoBehaviour:
   dropTime: 0.42
   launchSpeed: 13
   arenaHalfWidth: 5.6
+  bodyRadius: 0.4
+  avoidLookAhead: 2.5
   shieldPrefab: {fileID: 919132149155446097, guid: 4a28a16db30c4bc47a1ffbf4f8974b21,
     type: 3}

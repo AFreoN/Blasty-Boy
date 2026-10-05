@@ -7,6 +7,9 @@ using UnityEngine;
 // Columns: utc, session, mode, event, wave, a, b, c
 public static class ProtoTelemetry
 {
+    // Marks sessions that weren't played by a person (the editor autopilot sets it), so playtest data stays separable.
+    public static string Tag;
+
     static string session;
     static string path;
 
@@ -15,7 +18,7 @@ public static class ProtoTelemetry
     public static void BeginSession(string mode)
     {
         session = Guid.NewGuid().ToString("N").Substring(0, 8);
-        Log("session_start", 0, mode);
+        Log("session_start", 0, mode, Tag);
     }
 
     public static void Log(string evt, int wave, object a = null, object b = null, object c = null)
@@ -46,6 +49,6 @@ public static class ProtoTelemetry
     {
         if (o == null) return "";
         if (o is float f) return f.ToString("0.###", CultureInfo.InvariantCulture);
-        return o.ToString().Replace(",", ";");
+        return o.ToString().Replace(",", ";").Replace("\n", " | ");
     }
 }

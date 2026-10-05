@@ -20,6 +20,13 @@ public abstract class ProtoTarget : MonoBehaviour
     // opt out; anything the player is meant to aim at should count.
     public virtual bool CountsTowardAccuracy => true;
 
+    // Props goons walk around instead of through: their footprint on the roof (only x and z are used).
+    public virtual bool BlocksWalking(out Bounds footprint)
+    {
+        footprint = default;
+        return false;
+    }
+
     public abstract PredictState Predict(Vector3 bladeDirection);
     public abstract HitOutcome OnBladeHit(ProtoBlade blade, Vector3 point, Vector3 bladeDirection);
     public virtual void SetPredicted(PredictState state) { }
@@ -38,5 +45,29 @@ public abstract class ProtoTarget : MonoBehaviour
         t = len2 > 1e-6f ? Mathf.Clamp01(Vector2.Dot(C - A, ab) / len2) : 0f;
         float r = HitRadius + bladeRadius;
         return (A + ab * t - C).sqrMagnitude <= r * r;
+    }
+
+    // Slab test in 2D; t is the entry point along a->b.
+    protected static bool SegmentBox(Vector2 a, Vector2 b, Vector2 min, Vector2 max, out float t)
+    {
+        float tMin = 0f, tMax = 1f;
+        Vector2 d = b - a;
+        for (int i = 0; i < 2; i++)
+        {
+            if (Mathf.Abs(d[i]) < 1e-6f)
+            {
+                if (a[i] < min[i] || a[i] > max[i]) { t = 0f; return false; }
+                continue;
+            }
+            float inv = 1f / d[i];
+            float t1 = (min[i] - a[i]) * inv;
+            float t2 = (max[i] - a[i]) * inv;
+            if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
+            tMin = Mathf.Max(tMin, t1);
+            tMax = Mathf.Min(tMax, t2);
+            if (tMin > tMax) { t = 0f; return false; }
+        }
+        t = tMin;
+        return true;
     }
 }

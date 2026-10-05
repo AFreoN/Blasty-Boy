@@ -12,6 +12,8 @@ public class ProtoCamera : MonoBehaviour
     [SerializeField] float traumaDecay = 1.8f;
     [SerializeField] float shakeFrequency = 24f;
     [SerializeField] float aimZoom = 4f;
+    [Tooltip("FOV degrees the camera pushes in by during a boss intro")]
+    [SerializeField] float pushInZoom = 9f;
     [SerializeField] float kickStiffness = 180f;
     [SerializeField] float kickDamping = 16f;
 
@@ -27,7 +29,7 @@ public class ProtoCamera : MonoBehaviour
     float baseFov;
     float trauma;
     float fovPunch;
-    float zoom, zoomTarget;
+    float zoom, zoomTarget, zoomAmount;
     Vector3 kick, kickVelocity;
     float seed;
 
@@ -38,6 +40,7 @@ public class ProtoCamera : MonoBehaviour
         basePosition = transform.position;
         baseRotation = transform.rotation;
         baseFov = cam.fieldOfView;
+        zoomAmount = aimZoom;
         seed = Random.value * 100f;
     }
 
@@ -52,7 +55,18 @@ public class ProtoCamera : MonoBehaviour
 
     public void Kick(Vector3 worldOffset) => kickVelocity += worldOffset * 10f;
 
-    public void SetAimZoom(bool on) => zoomTarget = on ? 1f : 0f;
+    public void SetAimZoom(bool on)
+    {
+        zoomAmount = aimZoom;
+        zoomTarget = on ? 1f : 0f;
+    }
+
+    // A slow, deeper push-in for dramatic beats (boss intro). Shares the aim zoom's easing.
+    public void PushIn(bool on)
+    {
+        zoomAmount = pushInZoom;
+        zoomTarget = on ? 1f : 0f;
+    }
 
     // Track a moving target (the ninja during a chase) along the rooftop axis.
     public void Follow(Transform target) => follow = target;
@@ -92,7 +106,7 @@ public class ProtoCamera : MonoBehaviour
 
         transform.position = basePosition + anchor + offset + kick;
         transform.rotation = baseRotation * tilt;
-        cam.fieldOfView = baseFov + fovPunch - zoom * aimZoom;
+        cam.fieldOfView = baseFov + fovPunch - zoom * zoomAmount;
     }
 
     float Noise(float t, float channel) => Mathf.PerlinNoise(seed + channel * 17.3f, t) * 2f - 1f;

@@ -78,27 +78,10 @@ public class ProtoCrate : ProtoTarget
         body.AddTorque(Random.insideUnitSphere * 12f, ForceMode.VelocityChange);
     }
 
-    // Slab test in 2D; t is the entry point along a->b.
-    static bool SegmentBox(Vector2 a, Vector2 b, Vector2 min, Vector2 max, out float t)
+    // Standing cover blocks goons too; once an explosion sends it flying it's out of the way.
+    public override bool BlocksWalking(out Bounds footprint)
     {
-        float tMin = 0f, tMax = 1f;
-        Vector2 d = b - a;
-        for (int i = 0; i < 2; i++)
-        {
-            if (Mathf.Abs(d[i]) < 1e-6f)
-            {
-                if (a[i] < min[i] || a[i] > max[i]) { t = 0f; return false; }
-                continue;
-            }
-            float inv = 1f / d[i];
-            float t1 = (min[i] - a[i]) * inv;
-            float t2 = (max[i] - a[i]) * inv;
-            if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
-            tMin = Mathf.Max(tMin, t1);
-            tMax = Mathf.Min(tMax, t2);
-            if (tMin > tMax) { t = 0f; return false; }
-        }
-        t = tMin;
-        return true;
+        footprint = box.bounds;
+        return footprint.min.y < 0.5f && footprint.max.y > 0f;
     }
 }
