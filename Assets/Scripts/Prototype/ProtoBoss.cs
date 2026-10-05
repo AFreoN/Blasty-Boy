@@ -2,15 +2,26 @@ using System.Collections;
 using UnityEngine;
 using CustomExtensions;
 
-// Big Bear, the gang boss. Every throw ends at him, which is what gives the curve a target: a blade that reaches him
-// hurts him, and every goon it cut through on the way adds damage. He taunts, flinches, flees to the next rooftop
-// when a zone is cleared (escaping for good at the end of most levels), and gets launched off the roof when his
-// health runs out in a showdown.
+// A gang boss (Big Bear, Iron Ox...). Every throw ends at him, which is what gives the curve a target: a blade that
+// reaches him hurts him, and every goon it cut through on the way adds damage. He taunts, flinches, flees to the next
+// rooftop when a zone is cleared (escaping for good at the end of most levels), and gets launched off the roof when
+// his health runs out in a showdown. A boss with a shield (shieldArc > 0) blocks blades that arrive head-on, so only
+// a well-bent throw hurts him; the aim preview and the real blade both ask Blocks().
+// Each boss is its own prefab, picked per level (ProtoLevel.boss).
 public class ProtoBoss : MonoBehaviour
 {
     public static ProtoBoss instance { get; private set; }
 
     [SerializeField] string displayName = "BIG BEAR";
+    [Tooltip("Shown on the title menu while this boss's levels are being played")]
+    [SerializeField, TextArea] string story = "BIG BEAR AND HIS GANG\nARE TAKING OVER THE CITY.\n<color=#FFD54A>CHASE HIM DOWN!</color>";
+    [SerializeField] string[] taunts = { "GET HIM, BOYS!", "TOO SLOW, NINJA!", "IS THAT ALL?", "HA HA HA!", "YOU'LL NEVER CATCH ME!" };
+    [SerializeField] string introTaunt = "YOU WANT A PIECE OF ME?!";
+    [SerializeField] string fleeTaunt = "CATCH ME IF YOU CAN!";
+    [SerializeField] string escapeTaunt = "SEE YOU NEXT TIME, NINJA!";
+    [Tooltip("Blades arriving within this many degrees of head-on hit his shield; 0 = no shield")]
+    [SerializeField, Range(0, 90)] float shieldArc = 0f;
+    [SerializeField] string[] blockTaunts = { };
     [SerializeField] int maxHealth = 80;
     [Tooltip("Before the showdown he shrugs off damage below this fraction of his health")]
     [SerializeField, Range(0, 1)] float healthFloorBeforeShowdown = 0.35f;
@@ -22,9 +33,12 @@ public class ProtoBoss : MonoBehaviour
     [SerializeField] float jumpHeight = 8f;
 
     static readonly int emissionId = Shader.PropertyToID("_EmissionColor");
-    static readonly string[] taunts = { "GET HIM, BOYS!", "TOO SLOW, NINJA!", "IS THAT ALL?", "HA HA HA!", "YOU'LL NEVER CATCH ME!" };
 
     public string DisplayName => displayName;
+    public string Story => story;
+    public string IntroTaunt => introTaunt;
+    public string EscapeTaunt => escapeTaunt;
+    public bool HasShield => shieldArc > 0f;
     public int Health { get; private set; }
     public int MaxHealth => maxHealth;
     public bool Defeated { get; private set; }
@@ -37,7 +51,7 @@ public class ProtoBoss : MonoBehaviour
     Renderer[] renderers;
     MaterialPropertyBlock block;
     Vector3 baseScale;
-    float flash, punch, tauntTimer;
+    float flash, punch, tauntTimer, lastBlockTaunt = -10f;
 
     private void Awake()
     {
@@ -83,8 +97,31 @@ public class ProtoBoss : MonoBehaviour
 
     public void Taunt(string line = null)
     {
+        if (line == null && taunts.Length == 0)
+            return;
         anim.CrossFadeInFixedTime("Taunt", 0.15f);
         ProtoHUD.instance.Taunt(line ?? taunts[Random.Range(0, taunts.Length)]);
+    }
+
+    // Whether a blade arriving along `direction` hits the shield: within shieldArc of head-on.
+    public bool Blocks(Vector3 direction)
+    {
+        if (!HasShield || Defeated)
+            return false;
+        Vector3 incoming = -direction.ReplaceY(0f);
+        return incoming.sqrMagnitude > 1e-6f && Vector3.Angle(incoming, transform.forward.ReplaceY(0f)) < shieldArc;
+    }
+
+    // A blade hit the shield: no damage, a clang, and now and then a jab about the player's aim.
+    public void Block(Vector3 point)
+    {
+        punch = 0.5f;
+        ProtoGame.instance.OnBossBlocked(this, point);
+        if (blockTaunts.Length > 0 && Time.time - lastBlockTaunt > 4f)
+        {
+            lastBlockTaunt = Time.time;
+            ProtoHUD.instance.Taunt(blockTaunts[Random.Range(0, blockTaunts.Length)]);
+        }
     }
 
     // Per-level health, set before the level starts.
@@ -140,7 +177,7 @@ public class ProtoBoss : MonoBehaviour
         IsBusy = true;
         transform.rotation = Quaternion.LookRotation(Vector3.forward);
         anim.CrossFadeInFixedTime("Run", 0.1f);
-        ProtoHUD.instance.Taunt("CATCH ME IF YOU CAN!");
+        ProtoHUD.instance.Taunt(fleeTaunt);
 
         Vector3 edge = new Vector3(transform.position.x, transform.position.y, Mathf.Max(edgeZ, transform.position.z));
         while ((edge - transform.position).ReplaceY(0f).sqrMagnitude > 0.04f)

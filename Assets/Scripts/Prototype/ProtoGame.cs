@@ -18,12 +18,14 @@ public class ProtoGame : MonoBehaviour
     [SerializeField] ProtoEnemy gruntPrefab = null;
     [SerializeField] ProtoEnemy shieldPrefab = null;
     [SerializeField] ProtoEnemy runnerPrefab = null;
+    [SerializeField] ProtoEnemy armoredPrefab = null;
     [SerializeField] ProtoHostage hostagePrefab = null;
     [SerializeField] ProtoBarrel barrelPrefab = null;
     [SerializeField] ProtoCrate cratePrefab = null;
 
     [Header("World")]
-    [SerializeField] ProtoBoss boss = null;
+    [Tooltip("Boss prefab for levels that don't name one")]
+    [SerializeField] ProtoBoss defaultBoss = null;
     [Tooltip("Distance between rooftop origins along +Z")]
     [SerializeField] float zoneSpacing = 34f;
     [Tooltip("Where the boss stands, relative to the rooftop origin")]
@@ -69,6 +71,7 @@ public class ProtoGame : MonoBehaviour
     public float FeverCharge => feverCharge;
 
     ProtoLevel level;
+    ProtoBoss boss;
     List<ProtoWave> waves;
     int levelIndex;
     int waveIndex;
@@ -94,11 +97,13 @@ public class ProtoGame : MonoBehaviour
         levelIndex = levels.Count > 0 ? Mathf.Clamp(SavedLevel, 0, levels.Count - 1) : 0;
         level = levels.Count > 0 ? levels[levelIndex] : null;
         waves = level != null ? level.rooftops : new List<ProtoWave>();
+        boss = Instantiate(level != null && level.boss != null ? level.boss : defaultBoss);
     }
 
     private void Start()
     {
         state = ProtoState.Menu;
+        ProtoThrower.instance.SetTarget(boss);
         boss.Place(ZoneOrigin(0) + bossOffset);
         if (level != null && level.bossHealth > 0)
             boss.SetMaxHealth(level.bossHealth);
@@ -114,7 +119,7 @@ public class ProtoGame : MonoBehaviour
             StartRun();
             return;
         }
-        ProtoHUD.instance.ShowMenu(LevelNumber, level.title, level.ending == ProtoLevelEnding.Knockout);
+        ProtoHUD.instance.ShowMenu(LevelNumber, level.title, level.ending == ProtoLevelEnding.Knockout, boss.Story);
         ProtoMusic.Play(MusicCue.Menu);
     }
 
@@ -236,7 +241,7 @@ public class ProtoGame : MonoBehaviour
         {
             state = ProtoState.WaveIntro;
             boss.Taunt();
-            ProtoHUD.instance.Banner("MORE GOONS!", "TAKE DOWN BIG BEAR", 1f);
+            ProtoHUD.instance.Banner("MORE GOONS!", "TAKE DOWN " + boss.DisplayName, 1f);
             yield return new WaitForSecondsRealtime(1f);
             if (state != ProtoState.WaveIntro)
                 yield break;
@@ -284,7 +289,7 @@ public class ProtoGame : MonoBehaviour
         ProtoHaptics.Pulse(80);
         yield return new WaitForSecondsRealtime(1.65f);
         ProtoCamera.instance.PushIn(false);
-        boss.Taunt("YOU WANT A PIECE OF ME?!");
+        boss.Taunt(boss.IntroTaunt);
         yield return new WaitForSecondsRealtime(0.25f);
     }
 
@@ -297,7 +302,7 @@ public class ProtoGame : MonoBehaviour
         StartCoroutine(boss.FleeTo(edgeZ, ZoneOrigin(waveIndex + 1) + bossOffset));
         while (boss.IsBusy)
             yield return null;
-        boss.Taunt("SEE YOU NEXT TIME, NINJA!");
+        boss.Taunt(boss.EscapeTaunt);
         yield return new WaitForSecondsRealtime(1.2f);
         Win();
     }
@@ -357,6 +362,7 @@ public class ProtoGame : MonoBehaviour
             knockout = level.ending == ProtoLevelEnding.Knockout,
             lastLevel = levelIndex == levels.Count - 1,
             nextIsBoss = levelIndex + 1 < levels.Count && levels[levelIndex + 1].ending == ProtoLevelEnding.Knockout,
+            bossName = boss.DisplayName,
             score = score,
             rooftops = won ? waves.Count : waveIndex,
             totalRooftops = waves.Count,
@@ -397,6 +403,7 @@ public class ProtoGame : MonoBehaviour
                 case ProtoSpawnKind.Guard: SpawnEnemy(gruntPrefab, ProtoEnemyType.Guard, pos, 0f, sp.delay); break;
                 case ProtoSpawnKind.Shield: SpawnEnemy(shieldPrefab, ProtoEnemyType.Shield, pos, shieldSpeed * wave.speedMultiplier, sp.delay); break;
                 case ProtoSpawnKind.Runner: SpawnEnemy(runnerPrefab, ProtoEnemyType.Runner, pos, runnerSpeed * wave.speedMultiplier, sp.delay); break;
+                case ProtoSpawnKind.Armored: SpawnEnemy(armoredPrefab, ProtoEnemyType.Armored, pos, gruntSpeed * wave.speedMultiplier, sp.delay); break;
                 case ProtoSpawnKind.Hostage:
                     ProtoHostage h = Instantiate(hostagePrefab, pos, Quaternion.LookRotation(Vector3.back));
                     hostages.Add(h);
@@ -599,7 +606,7 @@ public class ProtoGame : MonoBehaviour
         foreach (ProtoEnemy e in enemies)
             if (e != null)
                 e.Scatter();
-        ProtoHUD.instance.Banner("K.O.!", "BIG BEAR IS DOWN!", 2f, true);
+        ProtoHUD.instance.Banner("K.O.!", boss.DisplayName + " IS DOWN!", 2f, true);
         ProtoTelemetry.Log("boss_ko", waveIndex + 1, Time.time - runStart);
         yield return new WaitForSecondsRealtime(2.4f);
         Win();
@@ -613,6 +620,26 @@ public class ProtoGame : MonoBehaviour
         ProtoAudio.Play(Sfx.Clang, 0.9f, Random.Range(0.95f, 1.05f));
         ProtoHUD.instance.Popup(point + Vector3.up * 0.8f, "CLANG!", new Color(0.75f, 0.85f, 1f));
         ProtoHaptics.Pulse(30);
+    }
+
+    public void OnArmorPopped(ProtoEnemy enemy, Vector3 point)
+    {
+        ProtoTime.instance.HitStop(0.04f);
+        ProtoCamera.instance.Shake(0.2f);
+        ProtoFX.Clang(point);
+        ProtoAudio.Play(Sfx.Clang, 0.8f, Random.Range(1.15f, 1.3f));
+        ProtoHUD.instance.Popup(point + Vector3.up * 0.9f, "CLANK!", new Color(0.6f, 0.8f, 1f));
+        ProtoHaptics.Pulse(20);
+    }
+
+    public void OnBossBlocked(ProtoBoss blocker, Vector3 point)
+    {
+        ProtoTime.instance.HitStop(0.05f);
+        ProtoCamera.instance.Shake(0.25f);
+        ProtoFX.Clang(point);
+        ProtoAudio.Play(Sfx.Clang, 1f, Random.Range(0.7f, 0.8f));
+        ProtoHUD.instance.Popup(point + Vector3.up * 1.2f, "BLOCKED!", new Color(0.75f, 0.85f, 1f), 1.15f);
+        ProtoHaptics.Pulse(25);
     }
 
     public void OnCrateHit(Vector3 point)

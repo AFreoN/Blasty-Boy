@@ -156,6 +156,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProtoBoss
   displayName: BIG BEAR
+  story: 'BIG BEAR AND HIS GANG
+
+    ARE TAKING OVER THE CITY.
+
+    <color=#FFD54A>CHASE
+    HIM DOWN!</color>'
+  taunts:
+  - GET HIM, BOYS!
+  - TOO SLOW, NINJA!
+  - IS THAT ALL?
+  - HA HA HA!
+  - YOU'LL NEVER CATCH ME!
+  introTaunt: YOU WANT A PIECE OF ME?!
+  fleeTaunt: CATCH ME IF YOU CAN!
+  escapeTaunt: SEE YOU NEXT TIME, NINJA!
+  shieldArc: 0
+  blockTaunts: []
   maxHealth: 80
   healthFloorBeforeShowdown: 0.35
   aimHeight: 1.5

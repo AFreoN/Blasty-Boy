@@ -1,0 +1,131 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de186173b8b3a6d4897335a002405951, type: 3}
+  m_Name: Level09
+  m_EditorClassIdentifier: Assembly-CSharp::ProtoLevel
+  title: IRON GRIP
+  ending: 0
+  boss: {fileID: 8941055592642477110, guid: 2cd3779480026e24eb94b7b697b63400, type: 3}
+  bossHealth: 0
+  rooftops:
+  - title: WARM WELCOME
+    hint: 
+    speedMultiplier: 0.8
+    spawns:
+    - kind: 7
+      position: {x: -1.5, y: 9}
+      delay: 0
+    - kind: 7
+      position: {x: 1.5, y: 9}
+      delay: 0.1
+    - kind: 0
+      position: {x: -3, y: 13}
+      delay: 0.3
+    - kind: 0
+      position: {x: 3, y: 13}
+      delay: 0.4
+    - kind: 0
+      position: {x: 0, y: 16}
+      delay: 0.5
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 3
+  - title: HOSTAGE
+    hint: DON'T HIT THE HOSTAGE!
+    speedMultiplier: 0.85
+    spawns:
+    - kind: 4
+      position: {x: 0, y: 13}
+      delay: 0
+    - kind: 3
+      position: {x: -1.4, y: 13.6}
+      delay: 0.1
+    - kind: 3
+      position: {x: 1.4, y: 13.6}
+      delay: 0.2
+    - kind: 3
+      position: {x: 0, y: 15.3}
+      delay: 0.3
+    - kind: 7
+      position: {x: -3, y: 9.5}
+      delay: 0.5
+    - kind: 7
+      position: {x: 3, y: 10}
+      delay: 0.6
+    - kind: 2
+      position: {x: 4, y: 17.5}
+      delay: 5
+  - title: BLAST ZONE
+    hint: 
+    speedMultiplier: 0.85
+    spawns:
+    - kind: 5
+      position: {x: 0, y: 12.5}
+      delay: 0
+    - kind: 6
+      position: {x: -2.6, y: 7.5}
+      delay: 0
+    - kind: 6
+      position: {x: 2.6, y: 7.5}
+      delay: 0
+    - kind: 7
+      position: {x: -1.6, y: 12.6}
+      delay: 0.2
+    - kind: 7
+      position: {x: 1.6, y: 12.6}
+      delay: 0.3
+    - kind: 0
+      position: {x: 0, y: 14.4}
+      delay: 0.4
+    - kind: 1
+      position: {x: -3.5, y: 10}
+      delay: 0.5
+    - kind: 7
+      position: {x: 3.8, y: 11}
+      delay: 0.6
+    - kind: 2
+      position: {x: -4.5, y: 17}
+      delay: 3
+    - kind: 2
+      position: {x: 4.5, y: 17}
+      delay: 4.5
+  - title: HOSTAGES
+    hint: 
+    speedMultiplier: 0.9
+    spawns:
+    - kind: 4
+      position: {x: -2.5, y: 13}
+      delay: 0
+    - kind: 3
+      position: {x: -3.9, y: 13.6}
+      delay: 0.1
+    - kind: 3
+      position: {x: -1.1, y: 13.6}
+      delay: 0.2
+    - kind: 3
+      position: {x: -2.5, y: 15.3}
+      delay: 0.3
+    - kind: 7
+      position: {x: 1.5, y: 9.5}
+      delay: 0.4
+    - kind: 7
+      position: {x: 3, y: 12}
+      delay: 0.5
+    - kind: 0
+      position: {x: 2, y: 15}
+      delay: 0.6
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 3
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 5

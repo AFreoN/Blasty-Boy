@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum HitOutcome { Ignored, Killed, Blocked, Penalty, Exploded }
-public enum PredictState { None, Hit, Blocked, Penalty }
+// Armor: the hit knocked armor off without killing; the blade keeps going.
+public enum HitOutcome { Ignored, Killed, Blocked, Penalty, Exploded, Armor }
+public enum PredictState { None, Hit, Blocked, Penalty, Armor }
 
 // Anything a prototype blade can hit. Hits are resolved analytically along the blade's curve (not by physics
 // triggers), so the aim preview and the real throw always agree.

@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de186173b8b3a6d4897335a002405951, type: 3}
+  m_Name: Level06
+  m_EditorClassIdentifier: Assembly-CSharp::ProtoLevel
+  title: IRON OX
+  ending: 0
+  boss: {fileID: 8941055592642477110, guid: 2cd3779480026e24eb94b7b697b63400, type: 3}
+  bossHealth: 0
+  rooftops:
+  - title: NEW BOSS IN TOWN
+    hint: CURVE AROUND HIS SHIELD!
+    speedMultiplier: 0.6
+    spawns:
+    - kind: 0
+      position: {x: 3, y: 9.2}
+      delay: 0
+    - kind: 0
+      position: {x: 3.3, y: 13}
+      delay: 0.15
+    - kind: 0
+      position: {x: 2.2, y: 16.7}
+      delay: 0.3
+    - kind: 0
+      position: {x: -2.8, y: 10.1}
+      delay: 0.45
+    - kind: 0
+      position: {x: -2.3, y: 15.8}
+      delay: 0.6
+  - title: ARMORED
+    hint: ARMOR TAKES TWO HITS!
+    speedMultiplier: 0.65
+    spawns:
+    - kind: 7
+      position: {x: -2, y: 9}
+      delay: 0
+    - kind: 7
+      position: {x: 0, y: 10}
+      delay: 0.15
+    - kind: 7
+      position: {x: 2, y: 9}
+      delay: 0.3
+    - kind: 0
+      position: {x: -3, y: 14}
+      delay: 0.45
+    - kind: 0
+      position: {x: 3, y: 14}
+      delay: 0.6
+    - kind: 0
+      position: {x: 0, y: 16.5}
+      delay: 0.75
+  - title: IRON WALL
+    hint: 
+    speedMultiplier: 0.7
+    spawns:
+    - kind: 7
+      position: {x: -3, y: 9}
+      delay: 0
+    - kind: 7
+      position: {x: 3, y: 9}
+      delay: 0.15
+    - kind: 0
+      position: {x: -1, y: 12}
+      delay: 0.3
+    - kind: 0
+      position: {x: 1, y: 12}
+      delay: 0.4
+    - kind: 0
+      position: {x: 0, y: 14.5}
+      delay: 0.5
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 2
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 4

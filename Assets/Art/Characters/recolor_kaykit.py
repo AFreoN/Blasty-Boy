@@ -56,3 +56,7 @@ recolor("rogue_texture.png", "runner_texture.png", [(GREEN[0], GREEN[1], 0.25, (
 recolor("knight_texture.png", "riot_texture.png", [(STEEL[0], STEEL[1], 0.05, (70, 78, 95), 0.9), (330, 360, 0.4, (120, 50, 170), 1.0), (0, 12, 0.4, (120, 50, 170), 1.0)])
 # Boss "Big Bear": keeps the bear hat, gang purple and gold.
 recolor("barbarian_texture.png", "boss_texture.png", [(330, 360, 0.4, (120, 50, 170), 1.0), (0, 8, 0.5, (120, 50, 170), 1.0), (40, 65, 0.4, (235, 185, 40), 1.0)])
+# Boss "Iron Ox": blackened iron armor with oxblood red.
+recolor("knight_texture.png", "ironox_texture.png", [(STEEL[0], STEEL[1], 0.05, (62, 60, 66), 0.95), (330, 360, 0.4, (150, 28, 28), 1.0), (0, 12, 0.4, (150, 28, 28), 1.0)])
+# Iron Ox's armored goons: plain steel with rust orange, so they don't read as purple riot goons.
+recolor("knight_texture.png", "armored_texture.png", [(STEEL[0], STEEL[1], 0.05, (135, 140, 150), 0.8), (330, 360, 0.4, (200, 95, 35), 1.0), (0, 12, 0.4, (200, 95, 35), 1.0)])

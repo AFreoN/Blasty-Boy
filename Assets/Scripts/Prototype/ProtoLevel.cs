@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum ProtoSpawnKind { Grunt, Shield, Runner, Guard, Hostage, Barrel, Crate }
+// Serialized by index in the level assets: only ever append.
+public enum ProtoSpawnKind { Grunt, Shield, Runner, Guard, Hostage, Barrel, Crate, Armored }
 public enum ProtoLevelEnding { Escape, Knockout }
 
 [System.Serializable]
@@ -43,6 +44,8 @@ public class ProtoLevel : ScriptableObject
     [Tooltip("Shown under LEVEL N when the level starts")]
     public string title;
     public ProtoLevelEnding ending = ProtoLevelEnding.Escape;
+    [Tooltip("Boss prefab for this level; empty uses the default boss (Big Bear)")]
+    public ProtoBoss boss;
     [Tooltip("Boss health for this level; 0 keeps the boss prefab's")]
     public int bossHealth;
     [Tooltip("One wave per rooftop: up to 4 for an escape, 5 for a showdown")]

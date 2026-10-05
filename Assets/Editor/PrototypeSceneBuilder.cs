@@ -27,7 +27,7 @@ public static class PrototypeSceneBuilder
     const float zoneSpacing = 34f;
 
     struct Materials { public Material alpha, additive, aimLine, roof, brick, trim, metal, shadowClone; }
-    struct Prefabs { public GameObject goon, riot, runner, hostage, boss, barrel, crate, blade, rooftop; }
+    struct Prefabs { public GameObject goon, riot, runner, armored, hostage, boss, ironOx, barrel, crate, blade, rooftop; }
 
     [MenuItem("Tools/Prototype/Build Prototype Scene")]
     public static void BuildMenu() => Debug.Log(Build());
@@ -101,7 +101,37 @@ public static class PrototypeSceneBuilder
         p.runner = MakePrefab(castDir + "/Runner.prefab", "Proto_Runner", root => root.AddComponent<ProtoEnemy>());
         p.riot = MakePrefab(castDir + "/RiotGoon.prefab", "Proto_RiotGoon", root => SetField(root.AddComponent<ProtoEnemy>(), "shieldPrefab", shield));
         p.hostage = MakePrefab(castDir + "/Hostage.prefab", "Proto_Hostage", root => root.AddComponent<ProtoHostage>());
+        p.armored = MakePrefab(castDir + "/ArmoredGoon.prefab", "Proto_ArmoredGoon", root => root.AddComponent<ProtoEnemy>());
         p.boss = MakePrefab(castDir + "/Boss.prefab", "Proto_Boss", root => root.AddComponent<ProtoBoss>());
+
+        // Boss 2: a giant iron knight behind a tower shield, with ox horns. Only a bent throw gets past the shield.
+        Mesh horns = BuildHornMesh();
+        Material[] hornMats =
+        {
+            Tinted("OxHorn", new Color(0.86f, 0.8f, 0.64f), 0.3f),
+            Tinted("OxHornTip", new Color(0.22f, 0.18f, 0.15f), 0.3f),
+            Tinted("OxHornBand", new Color(0.3f, 0.3f, 0.33f), 0.6f),
+        };
+        p.ironOx = MakePrefab(castDir + "/IronOx.prefab", "Proto_IronOx", root =>
+        {
+            var boss = root.AddComponent<ProtoBoss>();
+            SetValue(boss, "displayName", v => v.stringValue = "IRON OX");
+            SetValue(boss, "story", v => v.stringValue = "BIG BEAR IS DOWN, BUT HIS BOSS\nIRON OX RUNS THE GANG NOW.\n<color=#FFD54A>CURVE AROUND HIS SHIELD!</color>");
+            SetStrings(boss, "taunts", "NOTHING GETS PAST IRON!", "BIG BEAR WAS SOFT!", "COME AT ME!", "MY BOYS ARE ARMORED!", "YOU CAN'T BREAK ME!");
+            SetStrings(boss, "blockTaunts", "TOO STRAIGHT!", "HA! TRY THE SIDES!", "IRON WINS!");
+            SetValue(boss, "introTaunt", v => v.stringValue = "I'M MADE OF IRON!");
+            SetValue(boss, "fleeTaunt", v => v.stringValue = "YOU'LL NEVER CORNER ME!");
+            SetValue(boss, "escapeTaunt", v => v.stringValue = "NEXT ROOF, NINJA!");
+            SetValue(boss, "shieldArc", v => v.floatValue = 25f);
+
+            var shieldModel = (GameObject)Object.Instantiate(shield, ProtoEnemy.FindDeep(root.transform, "handslot.l"));
+            shieldModel.name = "Shield";
+            shieldModel.transform.localPosition = Vector3.zero;
+            shieldModel.transform.localRotation = Quaternion.identity;
+            shieldModel.transform.localScale = Vector3.one * 1.1f;
+            HoldShieldInPose(root, shieldModel.transform, RooftopArtPipeline.Clip("Assets/ThirdParty/KayKit/Animations/Rig_Medium_CombatMelee.fbx", "Melee_Blocking"));
+            AttachHorns(root, horns, hornMats);
+        });
 
         p.barrel = MakePrefab(propDir + "/Prop_ExplosiveDrum.fbx", "Proto_Barrel", root =>
         {
@@ -218,6 +248,154 @@ public static class PrototypeSceneBuilder
         return go;
     }
 
+    // Two curved horns with an iron band at each root, built along a swept path. Unity axes: x outward, y up, z forward.
+    static Mesh BuildHornMesh()
+    {
+        string path = prefabDir + "/OxHorns.asset";
+        Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (mesh == null)
+        {
+            mesh = new Mesh { name = "OxHorns" };
+            AssetDatabase.CreateAsset(mesh, path);
+        }
+        mesh.Clear();
+
+        var verts = new System.Collections.Generic.List<Vector3>();
+        var horn = new System.Collections.Generic.List<int>();
+        var tip = new System.Collections.Generic.List<int>();
+        var band = new System.Collections.Generic.List<int>();
+        const int rings = 18, sides = 14;
+
+        foreach (float side in new[] { 1f, -1f })
+        {
+            System.Func<float, Vector3> at = t => new Vector3(side * (0.06f + 0.38f * t - 0.06f * t * t), 0.02f + 0.05f * t + 0.34f * Mathf.Pow(t, 2.2f), 0.1f * t * t);
+            // Mirroring flips winding; swap the triangle order on the left horn so both face outward.
+            System.Action<System.Collections.Generic.List<int>, int, int, int> tri = (list, a, b, c) =>
+            {
+                if (side > 0f) { list.Add(a); list.Add(b); list.Add(c); }
+                else { list.Add(a); list.Add(c); list.Add(b); }
+            };
+
+            int start = verts.Count;
+            Vector3 normal = Vector3.up;
+            for (int i = 0; i < rings; i++)
+            {
+                float t = i / (rings - 1f);
+                Vector3 tangent = (at(Mathf.Min(1f, t + 0.02f)) - at(Mathf.Max(0f, t - 0.02f))).normalized;
+                normal = Vector3.ProjectOnPlane(i == 0 ? Vector3.forward : normal, tangent).normalized;
+                Vector3 binormal = Vector3.Cross(tangent, normal);
+                float r = 0.075f * Mathf.Pow(1f - t, 0.85f) + 0.006f;
+                for (int k = 0; k < sides; k++)
+                {
+                    float a = 2f * Mathf.PI * k / sides;
+                    verts.Add(at(t) + (normal * Mathf.Cos(a) + binormal * Mathf.Sin(a)) * r);
+                }
+            }
+            for (int i = 0; i < rings - 1; i++)
+            {
+                var list = i >= rings - 4 ? tip : horn;
+                for (int k = 0; k < sides; k++)
+                {
+                    int a = start + i * sides + k, b = start + i * sides + (k + 1) % sides;
+                    int c = a + sides, d = b + sides;
+                    tri(list, a, c, b);
+                    tri(list, b, c, d);
+                }
+            }
+            int tipVert = verts.Count;
+            verts.Add(at(1.04f));
+            int last = start + (rings - 1) * sides;
+            for (int k = 0; k < sides; k++)
+                tri(tip, last + k, tipVert, last + (k + 1) % sides);
+
+            // Iron band: a short closed cylinder around the root.
+            Vector3 c0 = at(0.06f), axis = (at(0.1f) - at(0.02f)).normalized;
+            Vector3 n0 = Vector3.ProjectOnPlane(Vector3.forward, axis).normalized, b0 = Vector3.Cross(axis, n0);
+            int bandStart = verts.Count;
+            const int bandSides = 16;
+            foreach (float offset in new[] { -0.025f, 0.025f })
+            {
+                for (int k = 0; k < bandSides; k++)
+                {
+                    float a = 2f * Mathf.PI * k / bandSides;
+                    verts.Add(c0 + axis * offset + (n0 * Mathf.Cos(a) + b0 * Mathf.Sin(a)) * 0.088f);
+                }
+            }
+            for (int k = 0; k < bandSides; k++)
+            {
+                int a = bandStart + k, b = bandStart + (k + 1) % bandSides;
+                tri(band, a, a + bandSides, b);
+                tri(band, b, a + bandSides, b + bandSides);
+            }
+        }
+
+        mesh.SetVertices(verts);
+        mesh.subMeshCount = 3;
+        mesh.SetTriangles(horn, 0);
+        mesh.SetTriangles(tip, 1);
+        mesh.SetTriangles(band, 2);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        EditorUtility.SetDirty(mesh);
+        return mesh;
+    }
+
+    static Material Tinted(string name, Color color, float gloss)
+    {
+        Material mat = MaterialAsset(name, "Standard");
+        mat.color = color;
+        mat.SetFloat("_Glossiness", gloss);
+        EditorUtility.SetDirty(mat);
+        return mat;
+    }
+
+    // A hand-held prop takes the hand's orientation, which in Iron Ox's blocking pose lays his shield flat like a tray
+    // across his face. Sample that pose, stand the shield upright facing forward (its model axes match the
+    // character's: face along +z, top along +y), and drop it so its top sits under his chin, a little to his left, so
+    // the face and horns stay visible. It still follows the hand in other animations.
+    static void HoldShieldInPose(GameObject character, Transform shield, AnimationClip pose)
+    {
+        Quaternion localRotation;
+        Vector3 localPosition;
+        AnimationMode.StartAnimationMode();
+        try
+        {
+            AnimationMode.BeginSampling();
+            AnimationMode.SampleAnimationClip(character, pose, pose.length * 0.3f);
+            AnimationMode.EndSampling();
+
+            Transform hand = shield.parent;
+            Transform root = character.transform;
+            shield.rotation = root.rotation;
+            Bounds bounds = shield.GetComponentInChildren<Renderer>().bounds;
+            Vector3 pivotToCenter = bounds.center - shield.position;
+            float chin = ProtoEnemy.FindDeep(root, "head").position.y;
+            Vector3 center = new Vector3(hand.position.x, chin - bounds.extents.y, hand.position.z) + root.right * (-bounds.extents.x * 0.35f);
+
+            localRotation = Quaternion.Inverse(hand.rotation) * root.rotation;
+            localPosition = hand.InverseTransformPoint(center - pivotToCenter);
+        }
+        finally
+        {
+            AnimationMode.StopAnimationMode();
+        }
+        shield.localRotation = localRotation;
+        shield.localPosition = localPosition;
+    }
+
+    // Horns sit on top of the helmet, about twice its width, and follow the head bone.
+    static void AttachHorns(GameObject character, Mesh mesh, Material[] materials)
+    {
+        Renderer helmet = character.GetComponentsInChildren<Renderer>().First(r => r.name.Contains("Helmet") && !r.name.Contains("Visor"));
+        Bounds hb = helmet.bounds;
+        var horns = new GameObject("Horns");
+        horns.AddComponent<MeshFilter>().sharedMesh = mesh;
+        horns.AddComponent<MeshRenderer>().sharedMaterials = materials;
+        horns.transform.localScale = Vector3.one * (hb.size.x * 1.9f / mesh.bounds.size.x);
+        horns.transform.SetPositionAndRotation(new Vector3(hb.center.x, hb.center.y + hb.extents.y * 0.15f, hb.center.z), character.transform.rotation);
+        horns.transform.SetParent(ProtoEnemy.FindDeep(character.transform, "head"), true);
+    }
+
     static GameObject MakePrefab(string sourcePath, string name, System.Action<GameObject> edit)
     {
         // Model files can't be opened as prefab contents; build from an instance instead.
@@ -323,16 +501,13 @@ public static class PrototypeSceneBuilder
         line.receiveShadows = false;
         line.positionCount = 0;
 
-        var boss = (GameObject)PrefabUtility.InstantiatePrefab(prefabs.boss, scene);
-        boss.transform.SetPositionAndRotation(new Vector3(0f, 0f, 19.4f), Quaternion.LookRotation(Vector3.back));
-
+        // No boss in the scene: ProtoGame spawns the level's boss (ProtoLevel.boss, or defaultBoss) at startup.
         var ninja = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(castDir + "/Ninja.prefab"), scene);
         ninja.name = "Player";
         ninja.tag = "Player";
         ninja.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
         var thrower = ninja.AddComponent<ProtoThrower>();
         SetField(thrower, "bladePrefab", prefabs.blade.GetComponent<ProtoBlade>());
-        SetField(thrower, "target", boss.GetComponent<ProtoBoss>());
         SetField(thrower, "aimLine", line);
         var shadowClones = ninja.AddComponent<ProtoShadowClones>();
         SetField(shadowClones, "clonePrefab", AssetDatabase.LoadAssetAtPath<GameObject>(castDir + "/Ninja.prefab"));
@@ -355,10 +530,11 @@ public static class PrototypeSceneBuilder
         SetField(director, "gruntPrefab", prefabs.goon.GetComponent<ProtoEnemy>());
         SetField(director, "shieldPrefab", prefabs.riot.GetComponent<ProtoEnemy>());
         SetField(director, "runnerPrefab", prefabs.runner.GetComponent<ProtoEnemy>());
+        SetField(director, "armoredPrefab", prefabs.armored.GetComponent<ProtoEnemy>());
         SetField(director, "hostagePrefab", prefabs.hostage.GetComponent<ProtoHostage>());
         SetField(director, "barrelPrefab", prefabs.barrel.GetComponent<ProtoBarrel>());
         SetField(director, "cratePrefab", prefabs.crate.GetComponent<ProtoCrate>());
-        SetField(director, "boss", boss.GetComponent<ProtoBoss>());
+        SetField(director, "defaultBoss", prefabs.boss.GetComponent<ProtoBoss>());
         AssignLevels(director);
         EditorUtility.SetDirty(director);
 
@@ -573,6 +749,23 @@ public static class PrototypeSceneBuilder
         importer.SaveAndReimport();
     }
     #endregion
+
+    static void SetValue(Object target, string field, System.Action<SerializedProperty> set)
+    {
+        var so = new SerializedObject(target);
+        SerializedProperty prop = so.FindProperty(field);
+        if (prop == null)
+            throw new System.Exception(target.GetType().Name + " has no serialized field '" + field + "'");
+        set(prop);
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    static void SetStrings(Object target, string field, params string[] values) => SetValue(target, field, prop =>
+    {
+        prop.arraySize = values.Length;
+        for (int i = 0; i < values.Length; i++)
+            prop.GetArrayElementAtIndex(i).stringValue = values[i];
+    });
 
     static void SetField(Object target, string field, Object value)
     {

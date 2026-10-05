@@ -1,0 +1,167 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de186173b8b3a6d4897335a002405951, type: 3}
+  m_Name: Level10
+  m_EditorClassIdentifier: Assembly-CSharp::ProtoLevel
+  title: IRON OX SHOWDOWN
+  ending: 1
+  boss: {fileID: 8941055592642477110, guid: 2cd3779480026e24eb94b7b697b63400, type: 3}
+  bossHealth: 0
+  rooftops:
+  - title: NO WAY THROUGH
+    hint: 
+    speedMultiplier: 1.15
+    spawns:
+    - kind: 1
+      position: {x: -1.5, y: 8.5}
+      delay: 0
+    - kind: 1
+      position: {x: 1.5, y: 8.5}
+      delay: 0.1
+    - kind: 7
+      position: {x: -3.2, y: 13}
+      delay: 0.3
+    - kind: 7
+      position: {x: 3.2, y: 13}
+      delay: 0.4
+    - kind: 0
+      position: {x: 0, y: 15.5}
+      delay: 0.5
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 2
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 3
+    - kind: 0
+      position: {x: -4.5, y: 7}
+      delay: 5
+    - kind: 0
+      position: {x: 4.5, y: 7}
+      delay: 5.3
+  - title: HOSTAGE
+    hint: DON'T HIT THE HOSTAGE!
+    speedMultiplier: 1.2
+    spawns:
+    - kind: 4
+      position: {x: 0, y: 13}
+      delay: 0
+    - kind: 3
+      position: {x: -1.4, y: 13.6}
+      delay: 0.1
+    - kind: 3
+      position: {x: 1.4, y: 13.6}
+      delay: 0.2
+    - kind: 3
+      position: {x: 0, y: 15.3}
+      delay: 0.3
+    - kind: 5
+      position: {x: -3.8, y: 9.5}
+      delay: 0
+    - kind: 7
+      position: {x: -3, y: 10.5}
+      delay: 0.4
+    - kind: 7
+      position: {x: -4.6, y: 10.2}
+      delay: 0.45
+    - kind: 1
+      position: {x: 1.5, y: 8}
+      delay: 0.5
+    - kind: 7
+      position: {x: 3.2, y: 9}
+      delay: 0.6
+    - kind: 2
+      position: {x: 4.5, y: 17}
+      delay: 3
+    - kind: 0
+      position: {x: -4.5, y: 7}
+      delay: 5
+    - kind: 0
+      position: {x: 4.5, y: 7}
+      delay: 5.5
+  - title: STEEL WALL
+    hint: 
+    speedMultiplier: 1.25
+    spawns:
+    - kind: 1
+      position: {x: -3, y: 9}
+      delay: 0
+    - kind: 7
+      position: {x: -1, y: 9}
+      delay: 0.1
+    - kind: 7
+      position: {x: 1, y: 9}
+      delay: 0.2
+    - kind: 1
+      position: {x: 3, y: 9}
+      delay: 0.3
+    - kind: 0
+      position: {x: -2, y: 14}
+      delay: 0.5
+    - kind: 0
+      position: {x: 2, y: 14}
+      delay: 0.6
+    - kind: 0
+      position: {x: 0, y: 16.5}
+      delay: 0.7
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 3
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 4
+    - kind: 7
+      position: {x: -4.5, y: 7}
+      delay: 6
+    - kind: 7
+      position: {x: 4.5, y: 7}
+      delay: 6.2
+    - kind: 1
+      position: {x: 0, y: 9}
+      delay: 8
+  - title: TAKE DOWN IRON OX
+    hint: 
+    speedMultiplier: 1.35
+    spawns:
+    - kind: 5
+      position: {x: 0, y: 15.5}
+      delay: 0
+    - kind: 7
+      position: {x: -3, y: 16}
+      delay: 0
+    - kind: 7
+      position: {x: 3, y: 16}
+      delay: 0.2
+    - kind: 1
+      position: {x: -1.2, y: 10}
+      delay: 0.3
+    - kind: 1
+      position: {x: 1.2, y: 10}
+      delay: 0.4
+    - kind: 2
+      position: {x: -4, y: 12}
+      delay: 1
+    - kind: 2
+      position: {x: 4, y: 12}
+      delay: 1.5
+    - kind: 0
+      position: {x: -2, y: 17.5}
+      delay: 3
+    - kind: 0
+      position: {x: 2, y: 17.5}
+      delay: 3.5
+    - kind: 0
+      position: {x: -4.5, y: 7}
+      delay: 5.5
+    - kind: 0
+      position: {x: 4.5, y: 7}
+      delay: 5.8

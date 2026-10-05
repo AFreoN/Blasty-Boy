@@ -8,6 +8,7 @@ using UnityEngine.UI;
 public struct ProtoRunSummary
 {
     public bool won, knockout, lastLevel, nextIsBoss;
+    public string bossName;
     public int level, score, rooftops, totalRooftops, bossDamage, bossMaxHealth, bestMulti, accuracy, storms, seconds, stars;
 }
 
@@ -109,7 +110,7 @@ public class ProtoHUD : MonoBehaviour
 
     // screens
     GameObject menuPanel, endPanel, pausePanel;
-    TextMeshProUGUI endTitle, endSub, endButtonLabel, menuLevel;
+    TextMeshProUGUI endTitle, endSub, endButtonLabel, menuLevel, menuStory;
     Button endButton;
     Image menuPlay;
 
@@ -147,8 +148,10 @@ public class ProtoHUD : MonoBehaviour
     }
 
     #region Public API
-    public void ShowMenu(int level, string title, bool bossFight)
+    public void ShowMenu(int level, string title, bool bossFight, string story)
     {
+        if (!string.IsNullOrEmpty(story))
+            menuStory.text = story;
         if (bossFight)
             title = "<color=#FF4D4D>BOSS FIGHT!</color>";
         else if (!string.IsNullOrEmpty(title))
@@ -311,7 +314,7 @@ public class ProtoHUD : MonoBehaviour
         endTitle.text = !s.won ? "KNOCKED OUT!" : s.knockout ? "VICTORY!" : "LEVEL " + s.level + " CLEAR!";
         endRibbon.sprite = s.won ? skinOr(skin?.ribbonGreen) : skinOr(skin?.ribbonOrange);
         endRibbon.color = endRibbon.sprite == ProtoArt.Sprite(ProtoArt.Square) ? (s.won ? new Color(0.3f, 0.8f, 0.3f) : new Color(0.9f, 0.35f, 0.2f)) : Color.white;
-        string headline = !s.won ? "BIG BEAR GOT AWAY..." : s.knockout ? "BIG BEAR IS DOWN!" : "HE GOT AWAY! AFTER HIM!";
+        string headline = !s.won ? s.bossName + " GOT AWAY..." : s.knockout ? s.bossName + " IS DOWN!" : "HE GOT AWAY! AFTER HIM!";
         if (s.won && s.lastLevel)
             headline += "\n<size=70%>ALL LEVELS CLEARED. MORE COMING SOON!</size>";
         endSub.text = headline + "\n<size=70%>ROOFTOPS " + s.rooftops + "/" + s.totalRooftops + "   STORMS " + s.storms + "   TIME " + s.seconds + "s</size>";
@@ -467,6 +470,7 @@ public class ProtoHUD : MonoBehaviour
                 if (state == PredictState.Hit && target is ProtoEnemy) { order++; label = order.ToString(); color = comboColors[Mathf.Clamp(order, 2, comboColors.Length - 1)]; }
                 else if (state == PredictState.Hit) { label = "!"; color = new Color(1f, 0.55f, 0.1f); }
                 else if (state == PredictState.Penalty) { label = "!"; color = red; }
+                else if (state == PredictState.Armor) { label = "1/2"; color = new Color(0.55f, 0.75f, 1f); }
                 else { label = "X"; color = red; }
 
                 if (used >= markers.Count)
@@ -487,6 +491,27 @@ public class ProtoHUD : MonoBehaviour
                 used++;
             }
         }
+        // A shielded boss that will block this throw gets an X of his own.
+        ProtoBoss boss = ProtoBoss.instance;
+        if (aiming && thrower.PredictedBossBlocked && boss != null)
+        {
+            if (used >= markers.Count)
+                AddMarker();
+            RectTransform m = markers[used];
+            if (markerTargets[used] != null || !m.gameObject.activeSelf)
+            {
+                markerTargets[used] = null;
+                markerAge[used] = 0f;
+            }
+            markerAge[used] += dt;
+            m.localScale = Vector3.one * OutBack(Mathf.Clamp01(markerAge[used] / 0.18f));
+            m.anchoredPosition = WorldToCanvas(boss.AimPoint + Vector3.up * 2f);
+            m.gameObject.SetActive(true);
+            markerTexts[used].text = "X";
+            markerImages[used].color = red;
+            used++;
+        }
+
         for (int i = used; i < markers.Count; i++)
         {
             markers[i].gameObject.SetActive(false);
@@ -506,7 +531,6 @@ public class ProtoHUD : MonoBehaviour
             badge.text = "x" + kills;
             badge.color = comboColors[Mathf.Clamp(kills, 1, comboColors.Length - 1)];
             badge.rectTransform.localScale = Vector3.one * (1f + 0.5f * badgePunch * badgePunch);
-            ProtoBoss boss = ProtoBoss.instance;
             Vector2 at = boss != null ? WorldToCanvas(boss.AimPoint + Vector3.up * 2.2f) : new Vector2(0f, 400f);
             badge.rectTransform.anchoredPosition = at + new Vector2(-150f, 0f);
         }
@@ -991,7 +1015,8 @@ public class ProtoHUD : MonoBehaviour
         Image story = Img("Story", panel.transform, skinOr(skin?.panel, ProtoArt.Square), skin?.panel != null ? Color.white : new Color(0.1f, 0.12f, 0.25f, 0.9f), Mid, new Vector2(0f, 90f), new Vector2(820f, 320f));
         if (story.sprite != null && story.sprite.border != Vector4.zero)
             story.type = Image.Type.Sliced;
-        Label("Text", story.transform, "BIG BEAR AND HIS GANG\nARE TAKING OVER THE CITY.\n<color=#FFD54A>CHASE HIM DOWN!</color>", 52f, Color.white, Center, Mid, new Vector2(0f, 10f), new Vector2(800f, 300f));
+        // Set per boss by ShowMenu.
+        menuStory = Label("Text", story.transform, "", 52f, Color.white, Center, Mid, new Vector2(0f, 10f), new Vector2(800f, 300f));
 
         Label("HowTo", panel.transform, "HOLD to aim  -  SLIDE to bend  -  RELEASE to throw", 36f, Color.white, Center, Mid, new Vector2(0f, -150f), new Vector2(1000f, 60f));
         Label("HowTo2", panel.transform, "Line up multi-kills to charge the <color=#C77DFF>SHADOW STORM</color>", 36f, Color.white, Center, Mid, new Vector2(0f, -205f), new Vector2(1000f, 60f));

@@ -125,6 +125,15 @@ public static class RooftopArtPipeline
                 new S("JumpAir", KK + "MovementBasic.fbx", "Jump_Idle"),
                 new S("Land", KK + "MovementBasic.fbx", "Jump_Land", "Idle"),
                 new S("KO", KK + "General.fbx", "Death_B")),
+            // Iron Ox holds his shield up the whole time; the same state names as Big Bear so ProtoBoss drives both.
+            Controller("IronOx", "Idle",
+                new S("Idle", KK + "CombatMelee.fbx", "Melee_Blocking"),
+                new S("Taunt", KK + "Simulation.fbx", "Cheering", "Idle"),
+                new S("Hit", KK + "General.fbx", "Hit_B", "Idle"),
+                new S("Run", KK + "MovementBasic.fbx", "Running_A"),
+                new S("JumpAir", KK + "MovementBasic.fbx", "Jump_Idle"),
+                new S("Land", KK + "MovementBasic.fbx", "Jump_Land", "Idle"),
+                new S("KO", KK + "General.fbx", "Death_B")),
             Controller("Hostage", "Captive",
                 new S("Captive", KK + "Simulation.fbx", "Sit_Floor_Idle"),
                 new S("Cheer", KK + "Simulation.fbx", "Cheering"),
@@ -174,11 +183,13 @@ public static class RooftopArtPipeline
         ("Runner", thirdParty + "/KayKit/Characters/Rogue_Hooded.fbx", "runner_texture.png", 1.8f),
         ("RiotGoon", thirdParty + "/KayKit/Characters/Knight.fbx", "riot_texture.png", 2.1f),
         ("Boss", thirdParty + "/KayKit/Characters/Barbarian.fbx", "boss_texture.png", 2.9f),
+        ("IronOx", thirdParty + "/KayKit/Characters/Knight.fbx", "ironox_texture.png", 3.0f),
+        ("ArmoredGoon", thirdParty + "/KayKit/Characters/Knight.fbx", "armored_texture.png", 2.1f),
         ("Hostage", thirdParty + "/KayKit/Characters/Rogue.fbx", null, 1.8f),
     };
 
     static string ControllerFor(string castName) =>
-        castName == "Ninja" ? "Ninja" : castName == "Boss" ? "Boss" : castName == "Hostage" ? "Hostage" : "Goon";
+        castName == "Ninja" || castName == "Boss" || castName == "IronOx" || castName == "Hostage" ? castName : "Goon";
 
     [MenuItem("Tools/Prototype/Art/3 Build Cast")]
     public static string BuildCast()

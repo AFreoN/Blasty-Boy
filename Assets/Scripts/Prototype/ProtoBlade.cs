@@ -134,7 +134,12 @@ public class ProtoBlade : MonoBehaviour
         if (s >= 1f)
         {
             flying = false;
-            if (board != null && !board.Defeated)
+            if (board != null && !board.Defeated && board.Blocks(tangent))
+            {
+                board.Block(b);
+                Deflect(tangent);
+            }
+            else if (board != null && !board.Defeated)
                 board.Catch(this, tangent);
             else
                 Consume();

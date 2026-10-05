@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de186173b8b3a6d4897335a002405951, type: 3}
+  m_Name: Level07
+  m_EditorClassIdentifier: Assembly-CSharp::ProtoLevel
+  title: STEEL AND SHIELDS
+  ending: 0
+  boss: {fileID: 8941055592642477110, guid: 2cd3779480026e24eb94b7b697b63400, type: 3}
+  bossHealth: 0
+  rooftops:
+  - title: FRONT LINE
+    hint: 
+    speedMultiplier: 0.7
+    spawns:
+    - kind: 1
+      position: {x: -1.5, y: 8.5}
+      delay: 0
+    - kind: 1
+      position: {x: 1.5, y: 8.5}
+      delay: 0.1
+    - kind: 7
+      position: {x: 0, y: 12}
+      delay: 0.3
+    - kind: 0
+      position: {x: -3, y: 13}
+      delay: 0.4
+    - kind: 0
+      position: {x: 3, y: 13}
+      delay: 0.5
+  - title: MIXED SQUAD
+    hint: 
+    speedMultiplier: 0.75
+    spawns:
+    - kind: 7
+      position: {x: -2.5, y: 9}
+      delay: 0
+    - kind: 7
+      position: {x: 2.5, y: 9}
+      delay: 0.1
+    - kind: 1
+      position: {x: 0, y: 9.5}
+      delay: 0.2
+    - kind: 0
+      position: {x: -1.5, y: 14}
+      delay: 0.4
+    - kind: 0
+      position: {x: 1.5, y: 14}
+      delay: 0.5
+    - kind: 0
+      position: {x: 0, y: 16.5}
+      delay: 0.6
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 4
+  - title: IRON ROW
+    hint: 
+    speedMultiplier: 0.8
+    spawns:
+    - kind: 7
+      position: {x: -3, y: 10}
+      delay: 0
+    - kind: 7
+      position: {x: -1, y: 10}
+      delay: 0.1
+    - kind: 7
+      position: {x: 1, y: 10}
+      delay: 0.2
+    - kind: 7
+      position: {x: 3, y: 10}
+      delay: 0.3
+    - kind: 0
+      position: {x: -2, y: 15}
+      delay: 0.5
+    - kind: 0
+      position: {x: 2, y: 15}
+      delay: 0.6
+    - kind: 2
+      position: {x: -4.5, y: 17.5}
+      delay: 3
+    - kind: 2
+      position: {x: 4.5, y: 17.5}
+      delay: 5

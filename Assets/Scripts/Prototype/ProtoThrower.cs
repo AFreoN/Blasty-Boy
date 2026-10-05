@@ -56,6 +56,9 @@ public class ProtoThrower : MonoBehaviour
     public bool InFever => feverUntil > Time.time;
     public float Fever01 => InFever ? (feverUntil - Time.time) / feverDuration : 0f;
     public int PredictedKills { get; private set; }
+    // The previewed blade reaches the boss: unblocked (it will hurt him) or stopped by his shield.
+    public bool PredictedBossHit { get; private set; }
+    public bool PredictedBossBlocked { get; private set; }
     public IReadOnlyList<ProtoTarget> PredictedTargets => predictedTargets;
     public IReadOnlyList<PredictState> PredictedStates => predictedStates;
     public System.Action onThrow;
@@ -93,6 +96,9 @@ public class ProtoThrower : MonoBehaviour
     }
 
     public void ResetQuiver() => Quiver = QuiverMax;
+
+    // The boss is spawned per level, so ProtoGame hands the thrower its target at the start.
+    public void SetTarget(ProtoBoss boss) => target = boss;
 
     public void StartFever(float duration)
     {
@@ -398,6 +404,11 @@ public class ProtoThrower : MonoBehaviour
             linePoints.Add(p);
             prev = p;
         }
+        // Nothing stopped it: the blade reaches the boss. Same check the real blade makes on arrival.
+        if (target.Blocks(ProtoCurve.Tangent(from, to, bend, hook, 1f)))
+            PredictedBossBlocked = true;
+        else
+            PredictedBossHit = true;
     done:
 
         if (PredictedKills != previousKills && PredictedKills > 0)
@@ -422,6 +433,7 @@ public class ProtoThrower : MonoBehaviour
         predictedStates.Clear();
         linePoints.Clear();
         PredictedKills = 0;
+        PredictedBossHit = PredictedBossBlocked = false;
     }
 
     void DrawLine()
@@ -430,7 +442,7 @@ public class ProtoThrower : MonoBehaviour
         for (int i = 0; i < linePoints.Count; i++)
             aimLine.SetPosition(i, linePoints[i]);
 
-        bool blocked = predictedStates.Count > 0 && predictedStates[predictedStates.Count - 1] == PredictState.Blocked;
+        bool blocked = PredictedBossBlocked || (predictedStates.Count > 0 && predictedStates[predictedStates.Count - 1] == PredictState.Blocked);
         Color c;
         if (cancelling) c = new Color(1f, 1f, 1f, 0.25f);
         else if (PredictedKills >= 4) c = new Color(1f, 0.35f, 0.95f);
@@ -512,9 +524,11 @@ public class ProtoThrower : MonoBehaviour
             for (int k = 0; k < predictedStates.Count; k++)
             {
                 if (predictedStates[k] == PredictState.Penalty) penalties++;
-                if (predictedStates[k] == PredictState.Blocked && predictedTargets[k] is ProtoEnemy) shieldBreaks++;
+                if ((predictedStates[k] == PredictState.Blocked || predictedStates[k] == PredictState.Armor) && predictedTargets[k] is ProtoEnemy) shieldBreaks++;
             }
-            int value = PredictedKills * 10 + shieldBreaks * 3 - penalties * 100;
+            // In a showdown the boss has to go down, so a throw that will actually hurt him is worth something too.
+            bool bossMatters = PredictedBossHit && target.CanBeKnockedOut;
+            int value = PredictedKills * 10 + shieldBreaks * 3 + (bossMatters ? 4 : 0) - penalties * 100;
             int score = value - Mathf.Abs(i) / 4;
             if (score > bestScore)
             {

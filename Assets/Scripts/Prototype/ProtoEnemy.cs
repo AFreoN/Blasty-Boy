@@ -2,10 +2,11 @@ using System.Collections;
 using UnityEngine;
 using CustomExtensions;
 
-public enum ProtoEnemyType { Grunt, Shield, Runner, Guard }
+public enum ProtoEnemyType { Grunt, Shield, Runner, Guard, Armored }
 
 // One of Big Bear's goons: drops in from the sky, walks at the player (around cover and barrels), punches when in range.
 // Shield goons block frontal hits (the shield flies off and they stagger); a blade arriving from the side flanks them.
+// Armored goons take two hits from any side: the first knocks the helmet off and the blade keeps going.
 // Knockouts are cartoon launches: the whole goon becomes a tumbling rigid body.
 public class ProtoEnemy : ProtoTarget
 {
@@ -28,6 +29,7 @@ public class ProtoEnemy : ProtoTarget
     static readonly Color deadTint = new Color(0.6f, 0.6f, 0.65f);
     static readonly Color predictedGlow = new Color(1f, 0.8f, 0.1f);
     static readonly Color blockedGlow = new Color(1f, 0.15f, 0.1f);
+    static readonly Color armorGlow = new Color(0.45f, 0.7f, 1f);
 
     enum State { Waiting, Dropping, Idle, Advancing, Attacking, Stunned, Dead }
 
@@ -49,6 +51,7 @@ public class ProtoEnemy : ProtoTarget
     Renderer[] renderers;
     MaterialPropertyBlock block;
     Transform shield;
+    readonly System.Collections.Generic.List<SkinnedMeshRenderer> helmet = new System.Collections.Generic.List<SkinnedMeshRenderer>();
     Rigidbody body;
     string currentAnim;
     float flash, deadBlend, squashTime = 10f, baseScale = 1f;
@@ -77,8 +80,16 @@ public class ProtoEnemy : ProtoTarget
             anim.speed = 1.5f;
         if (type == ProtoEnemyType.Shield)
             AttachShield();
+        if (type == ProtoEnemyType.Armored)
+        {
+            foreach (SkinnedMeshRenderer r in GetComponentsInChildren<SkinnedMeshRenderer>())
+                if (r.name.Contains("Helmet"))
+                    helmet.Add(r);
+        }
         ApplyVisuals();
     }
+
+    bool Armored => helmet.Count > 0;
 
     private void Update()
     {
@@ -267,6 +278,8 @@ public class ProtoEnemy : ProtoTarget
 
     public override PredictState Predict(Vector3 bladeDirection)
     {
+        if (Armored)
+            return PredictState.Armor;
         if (shield != null && !IsFlank(bladeDirection))
             return PredictState.Blocked;
         return PredictState.Hit;
@@ -274,6 +287,12 @@ public class ProtoEnemy : ProtoTarget
 
     public override HitOutcome OnBladeHit(ProtoBlade blade, Vector3 point, Vector3 bladeDirection)
     {
+        if (Armored)
+        {
+            PopHelmet(bladeDirection);
+            ProtoGame.instance.OnArmorPopped(this, point);
+            return HitOutcome.Armor;
+        }
         if (shield != null && !IsFlank(bladeDirection))
         {
             BreakShield(bladeDirection);
@@ -366,6 +385,37 @@ public class ProtoEnemy : ProtoTarget
             Destroy(c);
     }
 
+    // Swap the skinned helmet for a baked copy that flies off, leaving the bare head; then a short stagger.
+    void PopHelmet(Vector3 bladeDirection)
+    {
+        Vector3 flat = bladeDirection.ReplaceY(0f).normalized;
+        foreach (SkinnedMeshRenderer r in helmet)
+        {
+            var mesh = new Mesh();
+            r.BakeMesh(mesh, true);
+            var piece = new GameObject("Helmet");
+            piece.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation);
+            piece.AddComponent<MeshFilter>().sharedMesh = mesh;
+            piece.AddComponent<MeshRenderer>().sharedMaterials = r.sharedMaterials;
+            piece.AddComponent<BoxCollider>();
+            Rigidbody rb = piece.AddComponent<Rigidbody>();
+            rb.mass = 0.4f;
+            rb.linearVelocity = flat * 4f + Vector3.up * 8f + Random.insideUnitSphere * 1.5f;
+            rb.angularVelocity = Random.insideUnitSphere * 20f;
+            Destroy(piece, 2.5f);
+            Destroy(mesh, 2.6f);
+            Destroy(r.gameObject);
+        }
+        helmet.Clear();
+        type = ProtoEnemyType.Grunt;
+        state = State.Stunned;
+        timer = 0.35f;
+        stunVelocity = flat * 2.5f;
+        flash = 1f;
+        squashTime = 0f;
+        Play("Hit", 0.02f);
+    }
+
     void BreakShield(Vector3 bladeDirection)
     {
         DropShield(bladeDirection, 0.7f);
@@ -416,7 +466,8 @@ public class ProtoEnemy : ProtoTarget
         if (state != State.Dead && predicted != PredictState.None)
         {
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 18f);
-            glow += (predicted == PredictState.Hit ? predictedGlow : blockedGlow) * (0.35f + 0.35f * pulse);
+            Color c = predicted == PredictState.Hit ? predictedGlow : predicted == PredictState.Armor ? armorGlow : blockedGlow;
+            glow += c * (0.35f + 0.35f * pulse);
         }
 
         Color tint = Color.Lerp(Color.white, deadTint, deadBlend);
