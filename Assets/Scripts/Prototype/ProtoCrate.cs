@@ -12,6 +12,7 @@ public class ProtoCrate : ProtoTarget
 
     public override bool IsHittable => transform.position.y > -1f;
     public override float HitRadius => 0.5f;
+    public override bool CountsTowardAccuracy => false;
     public override Vector3 HitCenter => box.bounds.center;
     public override Vector3 MarkerPosition => box.bounds.center + Vector3.up * (box.bounds.extents.y + 0.5f);
 

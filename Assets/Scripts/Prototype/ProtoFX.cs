@@ -92,6 +92,15 @@ public class ProtoFX : MonoBehaviour
         instance.Emit(instance.stars, position, 0.6f * scale);
     }
 
+    // Purple smoke burst for shadow clones popping in and out.
+    public static void ShadowPoof(Vector3 position)
+    {
+        if (instance == null) return;
+        instance.Emit(instance.poof, position, 1.3f, new Color(0.45f, 0.2f, 0.75f, 0.9f));
+        instance.Emit(instance.sparkle, position, 1.1f, new Color(0.8f, 0.5f, 1f));
+        instance.Emit(instance.ring, position, 0.9f, new Color(0.7f, 0.35f, 1f));
+    }
+
     public static void Confetti(Vector3 position)
     {
         if (instance == null) return;

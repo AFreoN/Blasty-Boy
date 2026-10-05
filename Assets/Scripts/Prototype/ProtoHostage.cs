@@ -17,6 +17,7 @@ public class ProtoHostage : ProtoTarget
 
     public override bool IsHittable => state == State.Captive;
     public override float HitRadius => hitRadius;
+    public override bool CountsTowardAccuracy => false;
     public override Vector3 MarkerPosition => transform.position + Vector3.up * 2.1f;
     public float Danger01 => state == State.Captive ? Mathf.Clamp01(dangerTimer / dangerTime) : 0f;
     public float DangerSeconds => state == State.Captive ? Mathf.Max(0f, dangerTimer) : 0f;

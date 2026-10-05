@@ -61,6 +61,7 @@ public class ProtoThrower : MonoBehaviour
     public System.Action onThrow;
 
     Animator anim;
+    ProtoShadowClones clones;
     bool aiming, cancelling, simulated, firedThisAim, aimingInFever;
     Vector2 pressPosition;
     float bend;
@@ -84,6 +85,7 @@ public class ProtoThrower : MonoBehaviour
         instance = this;
         anim = GetComponentInChildren<Animator>();
         anim.updateMode = AnimatorUpdateMode.UnscaledTime;
+        clones = GetComponent<ProtoShadowClones>();
         lineMaterial = aimLine.material;
         lineMaterial.mainTexture = ProtoArt.Dash;
         aimLine.enabled = false;
@@ -252,13 +254,16 @@ public class ProtoThrower : MonoBehaviour
         return true;
     }
 
-    // Fever: three free blades per shot, fanned around the aimed bend.
+    // Fever: three free blades per shot, fanned around the aimed bend. With shadow clones out, the outer two leave
+    // from the clones' hands, so the fan visibly comes from three ninjas.
     void FeverVolley()
     {
         float spread = feverFanSpread * maxBend;
+        bool fromClones = clones != null && clones.Active;
         for (int i = -1; i <= 1; i++)
         {
-            ProtoBlade blade = Launch(Mathf.Clamp(bend + i * spread, -maxBend, maxBend), true);
+            Vector3 offset = fromClones && i != 0 ? clones.LaunchOffset(i) : Vector3.zero;
+            ProtoBlade blade = Launch(Mathf.Clamp(bend + i * spread, -maxBend, maxBend), true, offset);
             blade.PredictedKills = i == 0 && !firedThisAim ? PredictedKills : 0;
             ProtoGame.instance.OnBladeThrown(blade, blade.PredictedKills);
         }
@@ -266,12 +271,16 @@ public class ProtoThrower : MonoBehaviour
         ProtoAudio.Play(Sfx.Whoosh, 0.5f, Random.Range(1.1f, 1.3f));
         ProtoCamera.instance.Shake(0.03f);
         if (Time.unscaledTime - lastThrowAnim > 0.3f)
+        {
             ThrowAnimation();
+            if (fromClones)
+                clones.Throw();
+        }
     }
 
-    ProtoBlade Launch(float bladeBend, bool fever)
+    ProtoBlade Launch(float bladeBend, bool fever, Vector3 offset = default)
     {
-        Vector3 from = From;
+        Vector3 from = From + offset;
         ProtoBlade blade = Instantiate(bladePrefab, from, Quaternion.identity);
         blade.IsFeverBlade = fever;
         blade.Launch(from, To, bladeBend, hook, bladeSpeed, target);

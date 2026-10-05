@@ -102,7 +102,7 @@ public class ProtoGame : MonoBehaviour
     readonly List<GameObject> props = new List<GameObject>();
 
     // Playtest stats
-    int throws, throwsWithKill, kills, bestMulti, damageTaken, rescues, bossDamage, fevers;
+    int throws, throwsOnTarget, kills, bestMulti, damageTaken, rescues, bossDamage, fevers;
 
     public Vector3 ZoneOrigin(int index) => Vector3.forward * zoneSpacing * index;
 
@@ -144,7 +144,7 @@ public class ProtoGame : MonoBehaviour
         hearts = maxHearts;
         score = 0;
         feverCharge = 0f;
-        throws = throwsWithKill = kills = bestMulti = damageTaken = rescues = bossDamage = fevers = 0;
+        throws = throwsOnTarget = kills = bestMulti = damageTaken = rescues = bossDamage = fevers = 0;
         runStart = Time.time;
         ProtoTelemetry.BeginSession("rooftops");
         ProtoHUD.instance.HideMenu();
@@ -301,7 +301,7 @@ public class ProtoGame : MonoBehaviour
             bossDamage = bossDamage,
             bossMaxHealth = boss.MaxHealth,
             bestMulti = bestMulti,
-            accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsWithKill / throws) : 0,
+            accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsOnTarget / throws) : 0,
             storms = fevers,
             seconds = Mathf.RoundToInt(Time.time - runStart),
             stars = won ? Mathf.Clamp(hearts, 1, 3) : 0,
@@ -310,7 +310,7 @@ public class ProtoGame : MonoBehaviour
 
     string SummaryText()
     {
-        int accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsWithKill / throws) : 0;
+        int accuracy = throws > 0 ? Mathf.RoundToInt(100f * throwsOnTarget / throws) : 0;
         return "SCORE  " + score
             + "\nROOFTOPS  " + (state == ProtoState.Won ? waves.Count : waveIndex) + " / " + waves.Count
             + "\nBOSS DAMAGE  " + bossDamage + " / " + boss.MaxHealth
@@ -377,10 +377,12 @@ public class ProtoGame : MonoBehaviour
     #region Feedback events
     public void OnBladeThrown(ProtoBlade blade, int predictedKills)
     {
-        throws++;
         ProtoHUD.instance.HideHint();
-        if (!blade.IsFeverBlade)
-            ProtoTelemetry.Log("throw", waveIndex + 1, predictedKills, ProtoThrower.instance.Quiver);
+        // Accuracy measures the player's own aimed throws; free Shadow Storm blades are neither throws nor misses.
+        if (blade.IsFeverBlade)
+            return;
+        throws++;
+        ProtoTelemetry.Log("throw", waveIndex + 1, predictedKills, ProtoThrower.instance.Quiver);
     }
 
     public void OnBladeFinished(ProtoBlade blade)
@@ -390,8 +392,9 @@ public class ProtoGame : MonoBehaviour
         ProtoTelemetry.Log("blade", waveIndex + 1, blade.PredictedKills, blade.Kills);
         PredictedTotal += blade.PredictedKills;
         ActualTotal += blade.Kills;
-        if (blade.Kills > 0)
-            throwsWithKill++;
+        // Accurate = the throw struck at least one target, whether or not it killed it.
+        if (blade.Hits > 0)
+            throwsOnTarget++;
         bestMulti = Mathf.Max(bestMulti, blade.Kills);
         if (blade.Kills >= 2)
             ProtoTelemetry.Log("multi_kill", waveIndex + 1, blade.Kills);

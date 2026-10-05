@@ -23,6 +23,8 @@ public class ProtoBlade : MonoBehaviour
 
     public int Kills { get; private set; }
     public int PredictedKills { get; set; }
+    // Targets struck that count toward accuracy (kills, shield blocks, barrels...).
+    public int Hits { get; private set; }
     public bool IsFeverBlade { get; set; }
     public bool IsStuck { get; private set; }
     public float Radius => radius;
@@ -105,6 +107,8 @@ public class ProtoBlade : MonoBehaviour
             Vector3 dir = ProtoCurve.Tangent(from, to, bend, hook, hitS);
 
             HitOutcome outcome = target.OnBladeHit(this, point, dir);
+            if (target.CountsTowardAccuracy)
+                Hits++;
             if (outcome == HitOutcome.Killed)
             {
                 RegisterKill(target, point);

@@ -23,7 +23,7 @@ public static class PrototypeSceneBuilder
     const int rooftopCount = 5;
     const float zoneSpacing = 34f;
 
-    struct Materials { public Material alpha, additive, aimLine, roof, brick, trim, metal; }
+    struct Materials { public Material alpha, additive, aimLine, roof, brick, trim, metal, shadowClone; }
     struct Prefabs { public GameObject goon, riot, runner, hostage, boss, barrel, crate, blade, rooftop; }
 
     [MenuItem("Tools/Prototype/Build Prototype Scene")]
@@ -55,6 +55,7 @@ public static class PrototypeSceneBuilder
             brick = Surface("Brick", "T_RedBrick_BaseColor", new Vector2(5f, 14f), Color.white),
             trim = Surface("Trim", "T_Trim_BaseColor", new Vector2(6f, 1f), new Color(0.75f, 0.72f, 0.7f)),
             metal = Surface("Metal", "T_MetalConcrete_BaseColor", new Vector2(1f, 1f), new Color(0.6f, 0.65f, 0.7f)),
+            shadowClone = MaterialAsset("ShadowClone", "Proto/ShadowClone"),
         };
         return m;
     }
@@ -330,6 +331,9 @@ public static class PrototypeSceneBuilder
         SetField(thrower, "bladePrefab", prefabs.blade.GetComponent<ProtoBlade>());
         SetField(thrower, "target", boss.GetComponent<ProtoBoss>());
         SetField(thrower, "aimLine", line);
+        var shadowClones = ninja.AddComponent<ProtoShadowClones>();
+        SetField(shadowClones, "clonePrefab", AssetDatabase.LoadAssetAtPath<GameObject>(castDir + "/Ninja.prefab"));
+        SetField(shadowClones, "cloneMaterial", mats.shadowClone);
 
         var systems = new GameObject("Prototype");
         SceneManager.MoveGameObjectToScene(systems, scene);

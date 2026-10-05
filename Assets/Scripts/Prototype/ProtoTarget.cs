@@ -16,6 +16,9 @@ public abstract class ProtoTarget : MonoBehaviour
     // Current ground velocity; the aim preview uses it to lead moving targets.
     public virtual Vector3 Velocity => Vector3.zero;
     public virtual Vector3 MarkerPosition => transform.position + Vector3.up * 2.3f;
+    // Whether striking this target counts as an accurate throw (any hit, not just a kill). Obstacles and the hostage
+    // opt out; anything the player is meant to aim at should count.
+    public virtual bool CountsTowardAccuracy => true;
 
     public abstract PredictState Predict(Vector3 bladeDirection);
     public abstract HitOutcome OnBladeHit(ProtoBlade blade, Vector3 point, Vector3 bladeDirection);
